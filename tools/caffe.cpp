@@ -31,6 +31,36 @@ DEFINE_string(weights, "",
 DEFINE_int32(iterations, 50,
     "The number of iterations to run.");
 
+DEFINE_string(feafolder, "",
+    "Optional; folder for feature saving");
+DEFINE_string(feaname, "",
+    "Optional; specify feature name for saving");
+
+std::string ReplaceSep(const std::string src, const char p, const char pdst)
+{
+    std::vector<size_t> poses;
+    size_t pos = src.find_first_of(p);
+    while (std::string::npos != pos)
+    {
+        poses.push_back(pos);
+        pos = src.find_first_of(p, pos + 1);
+    }
+    
+    std::string dst;
+    if (poses.empty())
+        dst = src;
+    else
+    {
+        dst = src.substr(0, poses[0]) + pdst;
+        for (size_t i = 0; i < poses.size() - 1; i++)
+            dst = dst + src.substr(poses[i]+1, poses[i+1]) + pdst;
+        dst += src.substr(poses.back()+1, src.size());
+    }
+    
+    return dst;
+}
+
+
 // A simple registry for caffe commands.
 typedef int (*BrewFunction)();
 typedef std::map<caffe::string, BrewFunction> BrewMap;
@@ -156,6 +186,20 @@ int test() {
   caffe_net.CopyTrainedLayersFrom(FLAGS_weights);
   LOG(INFO) << "Running for " << FLAGS_iterations << " iterations.";
 
+  //open feature file
+  bool savefea = FLAGS_feafolder.size() > 0 && FLAGS_feaname.size() > 0;
+  FILE *fid = NULL;
+  if (savefea)
+  {
+    std::string path_feafile = FLAGS_feafolder + "/" + ReplaceSep(FLAGS_feaname, '/', '_') + ".binfile";
+    fid = fopen(path_feafile.c_str(), "wb");
+    if (NULL == fid)
+    {
+      LOG(ERROR) << "Failed to open " << path_feafile << " for feature saving";
+      return -1;
+    }
+  }
+  
   vector<Blob<float>* > bottom_vec;
   vector<int> test_score_output_id;
   vector<float> test_score;
@@ -164,6 +208,18 @@ int test() {
     float iter_loss;
     const vector<Blob<float>*>& result =
         caffe_net.Forward(bottom_vec, &iter_loss);
+    
+    if (savefea)
+    {
+            const shared_ptr<Blob<float> > pfea = caffe_net.blob_by_name(FLAGS_feaname);            
+            if (0 == i)
+            {
+                int size[4] = {FLAGS_iterations * pfea->num(), pfea->channels(), pfea->height(), pfea->width()};
+                fwrite(&(size), sizeof(int), 4, fid);
+            }        
+            fwrite(pfea->cpu_data(), sizeof(float), pfea->count(), fid);
+    }
+    
     loss += iter_loss;
     int idx = 0;
     for (int j = 0; j < result.size(); ++j) {
@@ -184,6 +240,10 @@ int test() {
   }
   loss /= FLAGS_iterations;
   LOG(INFO) << "Loss: " << loss;
+  
+  if (savefea)
+      fclose(fid);
+  
   for (int i = 0; i < test_score.size(); ++i) {
     const std::string& output_name = caffe_net.blob_names()[
         caffe_net.output_blob_indices()[test_score_output_id[i]]];
