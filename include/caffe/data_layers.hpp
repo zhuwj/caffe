@@ -367,5 +367,4 @@ protected:
 	int lines_id_;
 };
 }  // namespace caffe
-
 #endif  // CAFFE_DATA_LAYERS_HPP_
