@@ -365,10 +365,10 @@ bool ReadSegmentFlowToDatum(const string& filename, const int label,
 	for (int i = 0; i < offsets.size(); ++i){
 		int offset = offsets[i];
 		for (int file_id = 0; file_id < length; ++file_id){
-			sprintf(tmp,"%d_x.jpg",int(file_id+offset));
+			sprintf(tmp,"%d_x.png",int(file_id+offset));
 			string filename_x = filename + "/" + tmp;
 			cv::Mat cv_img_origin_x = cv::imread(filename_x, CV_LOAD_IMAGE_GRAYSCALE);
-			sprintf(tmp,"%d_y.jpg",int(file_id+offset));
+			sprintf(tmp,"%d_y.png",int(file_id+offset));
 			string filename_y = filename + "/" + tmp;
 			cv::Mat cv_img_origin_y = cv::imread(filename_y, CV_LOAD_IMAGE_GRAYSCALE);
 			if (!cv_img_origin_x.data || !cv_img_origin_y.data){
