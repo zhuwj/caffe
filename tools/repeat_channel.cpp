@@ -21,18 +21,19 @@ void RepeatChannel(const boost::shared_ptr<caffe::Layer<float> > layer, const in
     if (shape_old.size() == 4)
     {
       const int num = shape_old[0], chn_ori = shape_old[1], hei = shape_old[2], wid = shape_old[3];
-      printf("size(shape_old) = [%d,%d,%d,%d]\n", num, shape_old[1], hei, wid);
+      printf("size(shape_old) = [%d,%d,%d,%d]\n", num, chn_ori, hei, wid);
 
       //get mean
       const float *pdata_src = blobs[n]->cpu_data();
-      Blob<float> mean(num, 1, hei, wid);
-      float *pdata_mean = mean.mutable_cpu_data();    
+      Blob<float> mean(num, 1, hei, wid);      
+      float *pdata_mean = mean.mutable_cpu_data();
+      memset(pdata_mean, 0, sizeof(float) * num * hei * wid);
       for (int nn = 0; nn < num; nn++)
       {
         for (int c = 0; c < chn_ori; c++)
         {
           for (int i = 0; i < hei * wid; i++)
-            pdata_mean[i] += pdata_src[i] / chn_ori;
+            pdata_mean[i] += pdata_src[i];
 
           pdata_src += hei * wid;
         }
@@ -40,6 +41,7 @@ void RepeatChannel(const boost::shared_ptr<caffe::Layer<float> > layer, const in
       }
 
       //repmat
+      pdata_mean = mean.mutable_cpu_data();
       Blob<float> rep(num, fold, hei, wid);
       float *pdata_rep = rep.mutable_cpu_data();
       for (int nn = 0; nn < num; nn++)
@@ -47,7 +49,7 @@ void RepeatChannel(const boost::shared_ptr<caffe::Layer<float> > layer, const in
         for (int c = 0; c < fold; c++)
         {
           for (int i = 0; i < hei * wid; i++)
-            pdata_rep[i] = pdata_mean[i];
+            pdata_rep[i] = pdata_mean[i] / fold;
 
           pdata_rep += hei * wid;
         }
