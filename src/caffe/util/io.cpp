@@ -306,13 +306,17 @@ void hdf5_save_nd_dataset<double>(
 bool ReadSegmentRGBToDatum(const string& filename, const int label,
     const vector<int> offsets, const int height, const int width, const int length, Datum* datum, bool is_color){
 	cv::Mat cv_img;
-	string* datum_string = NULL;
 	char tmp[30];
 	int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
 	    CV_LOAD_IMAGE_GRAYSCALE);
-	for (int i = 0; i < offsets.size(); ++i){
+
+  string datum_tmp;
+  int pos = 0;
+	for (int i = 0; i < offsets.size(); ++i)
+  {
 		int offset = offsets[i];
-		for (int file_id = 0; file_id < length; ++file_id){
+		for (int file_id = 0; file_id < length; ++file_id)
+    {
 			sprintf(tmp,"%d.jpg",int(file_id+offset));
 			string filename_t = filename + "/" + tmp;
 			cv::Mat cv_img_origin = cv::imread(filename_t, cv_read_flag);
@@ -326,18 +330,17 @@ bool ReadSegmentRGBToDatum(const string& filename, const int label,
 				cv_img = cv_img_origin;
 			}
 			int num_channels = (is_color ? 3 : 1);
+      const int hei = cv_img.rows, wid = cv_img.cols;
 			if (file_id==0 && i==0){
 				datum->set_channels(num_channels*length*offsets.size());
-				datum->set_height(cv_img.rows);
-				datum->set_width(cv_img.cols);
+				datum->set_height(hei);
+				datum->set_width(wid);
 				datum->set_label(label);
 				datum->clear_data();
 				datum->clear_float_data();
-				datum_string = datum->mutable_data();
-			}
+        datum_tmp.resize(hei * wid * datum->channels());
+      } 
 
-      const int hei = cv_img.rows, wid = cv_img.cols;
-      datum_string->resize(wid * hei * num_channels);
 			if (is_color)
       {        
         for (int y = 0; y < hei; y++)
@@ -345,8 +348,9 @@ bool ReadSegmentRGBToDatum(const string& filename, const int label,
           const uchar *prow = cv_img.ptr<uchar>(y);
           for (int x = 0; x < wid; x++)
             for (int c = 0; c < num_channels; c++)
-              *(datum_string + hei * wid * c + wid * y + x) = static_cast<char> (prow[num_channels * x + c]);
+              datum_tmp[pos + hei * wid * c + wid * y + x] = static_cast<char>(prow[num_channels * x + c]);
         }
+        pos += hei * wid * num_channels;
 			}
       else
       {
@@ -354,19 +358,23 @@ bool ReadSegmentRGBToDatum(const string& filename, const int label,
         {
           const uchar *prow = cv_img.ptr<uchar>(y);
           for (int x = 0; x < wid; x++)
-              *(datum_string + wid * y + x) = static_cast<char> (prow[x]);
+              datum_tmp[pos++] = static_cast<char> (prow[x]);
         }
 			}
-		}
-	}
+
+		}//for file_id
+	} //for offsets
+
+  datum->set_data(datum_tmp);
 	return true;
 }
 
 bool ReadSegmentFlowToDatum(const string& filename, const int label,
     const vector<int> offsets, const int height, const int width, const int length, Datum* datum){
 	cv::Mat cv_img_x, cv_img_y;
-	string* datum_string = NULL;
+	string datum_tmp;
 	char tmp[30];
+  int pos = 0;
 	for (int i = 0; i < offsets.size(); ++i){
 		int offset = offsets[i];
 		for (int file_id = 0; file_id < length; ++file_id){
@@ -395,28 +403,27 @@ bool ReadSegmentFlowToDatum(const string& filename, const int label,
 				datum->set_width(cv_img_x.cols);
 				datum->set_label(label);
 				datum->clear_data();
-				datum->clear_float_data();
-				datum_string = datum->mutable_data();
-        datum_string->resize(hei * wid * datum->channels());
+				datum->clear_float_data();				
+        datum_tmp.resize(hei * wid * datum->channels());
 			}
-      
-      string *pdatum = datum_string + hei * wid * num_channels * length * i + hei * wid * num_channels * file_id;
+
       for (int y = 0; y < hei; y++)
       {
         const uchar *prow = cv_img_x.ptr<uchar>(y);        
         for (int x = 0; x < wid; x++)
-            *(pdatum + wid * y + x) = static_cast<char> (prow[x]);
+          datum_tmp[pos++] = static_cast<char> (prow[x]);
       }
-
-      pdatum += hei * wid;
       for (int y = 0; y < hei; y++)
       {
         const uchar *prow = cv_img_y.ptr<uchar>(y);        
         for (int x = 0; x < wid; x++)
-            *(pdatum + wid * y + x) = static_cast<char> (prow[x]);
+            datum_tmp[pos++] = static_cast<char> (prow[x]);
       }
 		}
 	}
+
+  datum->set_data(datum_tmp);
+
 	return true;
 }
 
