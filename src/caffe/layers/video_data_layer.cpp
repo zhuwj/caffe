@@ -31,6 +31,7 @@ void VideoDataLayer<Dtype>:: DataLayerSetUp(const vector<Blob<Dtype>*>& bottom, 
 	const int num_segments = this->layer_param_.video_data_param().num_segments();
 	const string& source = this->layer_param_.video_data_param().source();
 	string root_folder = this->layer_param_.video_data_param().root_folder();
+	const bool flow_is_color = this->layer_param_.video_data_param().flow_is_color();
 
 	LOG(INFO) << "Opening file: " << source;
 	std:: ifstream infile(source.c_str());
@@ -62,7 +63,7 @@ void VideoDataLayer<Dtype>:: DataLayerSetUp(const vector<Blob<Dtype>*>& bottom, 
 		offsets.push_back(offset+i*average_duration);
 	}
 	if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW)
-		CHECK(ReadSegmentFlowToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets, new_height, new_width, new_length, &datum));
+		CHECK(ReadSegmentFlowToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets, new_height, new_width, new_length, &datum, flow_is_color));
 	else
 		CHECK(ReadSegmentRGBToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets, new_height, new_width, new_length, &datum, true));
 	const int crop_size = this->layer_param_.transform_param().crop_size();
@@ -105,11 +106,14 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 	const int new_length = video_data_param.new_length();
 	const int num_segments = video_data_param.num_segments();
 	string root_folder = video_data_param.root_folder();
+	const bool flow_is_color = this->layer_param_.video_data_param().flow_is_color();
 	const int lines_size = lines_.size();
 
 	for (int item_id = 0; item_id < batch_size; ++item_id){
 		CHECK_GT(lines_size, lines_id_);
 		vector<int> offsets;
+		CHECK_GT(lines_duration_[lines_id_], 0) << "0 duration for video" << lines_[lines_id_].first;
+
 		int average_duration = (int) lines_duration_[lines_id_] / num_segments;
 		for (int i = 0; i < num_segments; ++i){
 			if (this->phase_==TRAIN){
@@ -121,7 +125,7 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 			}
 		}
 		if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW){
-			if(!ReadSegmentFlowToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets, new_height, new_width, new_length, &datum)) {
+			if(!ReadSegmentFlowToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets, new_height, new_width, new_length, &datum, flow_is_color)) {
 				continue;
 			}
 		} else{
@@ -129,6 +133,7 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 				continue;
 			}
 		}
+
 		int offset1 = this->prefetch_data_.offset(item_id);
     	this->transformed_data_.set_cpu_data(top_data + offset1);
 		this->data_transformer_->Transform(datum, &(this->transformed_data_));

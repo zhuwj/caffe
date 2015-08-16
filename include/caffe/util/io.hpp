@@ -96,7 +96,7 @@ bool ReadImageToDatum(const string& filename, const int label,
     const std::string & encoding, Datum* datum);
 
 bool ReadSegmentFlowToDatum(const string& filename, const int label,
-    const vector<int> offsets, const int height, const int width, const int length, Datum* datum);
+    const vector<int> offsets, const int height, const int width, const int length, Datum* datum, const bool is_color);
 
 bool ReadSegmentRGBToDatum(const string& filename, const int label,
     const vector<int> offsets, const int height, const int width, const int length, Datum* datum, bool is_color);

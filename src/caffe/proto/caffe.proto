@@ -658,6 +658,7 @@ message VideoDataParameter{
   }
   optional Modality modality = 13 [default = FLOW];
   optional string root_folder = 100 [default = ""];
+  optional bool flow_is_color = 101 [default = false];
 }
 
 message InfogainLossParameter {

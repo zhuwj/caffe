@@ -21,7 +21,8 @@ void RepeatChannel(const boost::shared_ptr<caffe::Layer<float> > layer, const in
     if (shape_old.size() == 4)
     {
       const int num = shape_old[0], chn_ori = shape_old[1], hei = shape_old[2], wid = shape_old[3];
-      printf("size(shape_old) = [%d,%d,%d,%d]\n", num, chn_ori, hei, wid);
+      printf("size(blob_old) = [%d,%d,%d,%d]\n", num, chn_ori, hei, wid);
+      printf("size(blob_new) = [%d,%d,%d,%d]\n", num, fold, hei, wid);
 
       //get mean
       const float *pdata_src = blobs[n]->cpu_data();
@@ -95,7 +96,7 @@ int main(int argc, char** argv) {
   }  
 
   //revise conv layer
-  RepeatChannel(layer_target, 20);
+  RepeatChannel(layer_target, fold);
 
   //save model
   caffe::NetParameter net_param;

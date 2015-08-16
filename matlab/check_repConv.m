@@ -1,11 +1,11 @@
 clear,clc
 
-net_model = '/data1/deep_action/models/google_net_singleGPU/deploy.prototxt';
-net_weights = '/data1/deep_action/models/google_net_singleGPU/bvlc_googlenet.caffemodel';
+net_model = '/data1/deep_action/models/googlenet/deploy.prototxt';
+net_weights = '/data1/deep_action/models/googlenet/bvlc_googlenet.caffemodel';
 net1 = caffe.Net(net_model, net_weights, 'train');
 
-net_model2 = '/data1/deep_action/models/google_net_singleGPU/deploy_videodata.prototxt';
-net_weights2 = '/data1/deep_action/models/google_net_singleGPU/bvlc_googlenet_fold_20.caffemodel';
+net_model2 = '/data1/deep_action/models/googlenet/deploy_chn6.prototxt';
+net_weights2 = '/data1/deep_action/models/googlenet/bvlc_googlenet_fold_6.caffemodel';
 net2 = caffe.Net(net_model2, net_weights2, 'train');
 
 name_layer = 'conv1/7x7_s2';
@@ -21,8 +21,8 @@ for k = 1:length(layer1.params)
     if isvector(blob1) && isvector(blob2)
         assert(all(blob1 == blob2));
     else
-        mblob = mean(blob1, 3);
-        blob_rep = repmat(mblob, [1,1,20,1]);
+        mblob = sum(blob1, 3) / size(blob2, 3);
+        blob_rep = repmat(mblob, [1,1,size(blob2, 3),1]);
         minmax(blob_rep(:)')
         minmax(blob2(:)')
         minmax(blob_rep(:)' - blob2(:)')

@@ -358,19 +358,22 @@ bool ReadSegmentRGBToDatum(const string& filename, const int label,
 }
 
 bool ReadSegmentFlowToDatum(const string& filename, const int label,
-    const vector<int> offsets, const int height, const int width, const int length, Datum* datum){
+    const vector<int> offsets, const int height, const int width, const int length, Datum* datum, const bool is_color){
   cv::Mat cv_img_x, cv_img_y;
   string* datum_string;
   char tmp[30];
+  int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
+	  CV_LOAD_IMAGE_GRAYSCALE);
+  int num_channels = is_color ? 3 : 1;
   for (int i = 0; i < offsets.size(); ++i){
     int offset = offsets[i];
     for (int file_id = 0; file_id < length; ++file_id){
       sprintf(tmp,"%d_x.png",int(file_id+offset));
       string filename_x = filename + "/" + tmp;
-      cv::Mat cv_img_origin_x = cv::imread(filename_x, CV_LOAD_IMAGE_GRAYSCALE);
+      cv::Mat cv_img_origin_x = cv::imread(filename_x, cv_read_flag);
       sprintf(tmp,"%d_y.png",int(file_id+offset));
       string filename_y = filename + "/" + tmp;
-      cv::Mat cv_img_origin_y = cv::imread(filename_y, CV_LOAD_IMAGE_GRAYSCALE);
+      cv::Mat cv_img_origin_y = cv::imread(filename_y, cv_read_flag);
       if (!cv_img_origin_x.data || !cv_img_origin_y.data){
         LOG(ERROR) << "Could not load file " << filename_x << " or " << filename_y;
         return false;
@@ -382,9 +385,13 @@ bool ReadSegmentFlowToDatum(const string& filename, const int label,
         cv_img_x = cv_img_origin_x;
         cv_img_y = cv_img_origin_y;
       }
-      if (file_id==0 && i==0){
-        int num_channels = 2;
-        datum->set_channels(num_channels*length*offsets.size());
+
+      if (file_id==0 && i==0){        
+        // printf("size(cv_img_x) = [%d, %d, %d]\n", cv_img_x.rows, cv_img_x.cols, cv_img_x.channels());
+        // cv::imshow("cv_img_x", cv_img_x);
+        // cv::waitKey();
+
+        datum->set_channels(num_channels*length*offsets.size() * 2);
         datum->set_height(cv_img_x.rows);
         datum->set_width(cv_img_x.cols);
         datum->set_label(label);
@@ -392,16 +399,38 @@ bool ReadSegmentFlowToDatum(const string& filename, const int label,
         datum->clear_float_data();
         datum_string = datum->mutable_data();
       }
-      for (int h = 0; h < cv_img_x.rows; ++h){
-        for (int w = 0; w < cv_img_x.cols; ++w){
-          datum_string->push_back(static_cast<char>(cv_img_x.at<uchar>(h,w)));
+
+      if (is_color) {
+          for (int c = 0; c < num_channels; ++c) {
+            for (int h = 0; h < cv_img_x.rows; ++h) {
+              for (int w = 0; w < cv_img_x.cols; ++w) {
+                datum_string->push_back(
+                  static_cast<char>(cv_img_x.at<cv::Vec3b>(h, w)[c]));
+              }
+            }
+          }
+
+          for (int c = 0; c < num_channels; ++c) {
+            for (int h = 0; h < cv_img_y.rows; ++h) {
+              for (int w = 0; w < cv_img_y.cols; ++w) {
+                datum_string->push_back(
+                  static_cast<char>(cv_img_y.at<cv::Vec3b>(h, w)[c]));
+              }
+            }
+          }
+
+        } else {  // Faster than repeatedly testing is_color for each pixel w/i loop
+  	      for (int h = 0; h < cv_img_x.rows; ++h){
+  	        for (int w = 0; w < cv_img_x.cols; ++w){
+  	          datum_string->push_back(static_cast<char>(cv_img_x.at<uchar>(h,w)));
+  	        }
+  	      }
+  	      for (int h = 0; h < cv_img_y.rows; ++h){
+  	        for (int w = 0; w < cv_img_y.cols; ++w){
+  	          datum_string->push_back(static_cast<char>(cv_img_y.at<uchar>(h,w)));
+  	        }
+  	      }
         }
-      }
-      for (int h = 0; h < cv_img_y.rows; ++h){
-        for (int w = 0; w < cv_img_y.cols; ++w){
-          datum_string->push_back(static_cast<char>(cv_img_y.at<uchar>(h,w)));
-        }
-      }
     }
   }
   return true;
