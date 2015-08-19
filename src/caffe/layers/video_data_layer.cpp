@@ -146,7 +146,8 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 
 		int offset1 = this->prefetch_data_.offset(item_id);
     	this->transformed_data_.set_cpu_data(top_data + offset1);
-		this->data_transformer_->Transform(datum, &(this->transformed_data_));
+    	const int chn_flow_single = flow_is_color ? 3 : 1;
+		this->data_transformer_->Transform(datum, &(this->transformed_data_), chn_flow_single);
 		top_label[item_id] = lines_[lines_id_].second;
 		//LOG()
 

@@ -35,7 +35,7 @@ class DataTransformer {
    *    This is destination blob. It can be part of top blob's data if
    *    set_cpu_data() is used. See data_layer.cpp for an example.
    */
-  void Transform(const Datum& datum, Blob<Dtype>* transformed_blob);
+  void Transform(const Datum& datum, Blob<Dtype>* transformed_blob, const int chn_flow_single = 0);
 
   /**
    * @brief Applies the transformation defined in the data layer's
@@ -47,8 +47,7 @@ class DataTransformer {
    *    This is destination blob. It can be part of top blob's data if
    *    set_cpu_data() is used. See memory_layer.cpp for an example.
    */
-  void Transform(const vector<Datum> & datum_vector,
-                Blob<Dtype>* transformed_blob);
+  void Transform(const vector<Datum> & datum_vector, Blob<Dtype>* transformed_blob);
 
   /**
    * @brief Applies the transformation defined in the data layer's
@@ -60,8 +59,7 @@ class DataTransformer {
    *    This is destination blob. It can be part of top blob's data if
    *    set_cpu_data() is used. See memory_layer.cpp for an example.
    */
-  void Transform(const vector<cv::Mat> & mat_vector,
-                Blob<Dtype>* transformed_blob);
+  void Transform(const vector<cv::Mat> & mat_vector, Blob<Dtype>* transformed_blob);
 
   /**
    * @brief Applies the transformation defined in the data layer's
@@ -134,7 +132,7 @@ class DataTransformer {
    */
   virtual int Rand(int n);
 
-  void Transform(const Datum& datum, Dtype* transformed_data);
+  void Transform(const Datum& datum, Dtype* transformed_data, const int chn_flow_single = 0);
   // Tranformation parameters
   TransformationParameter param_;
 
@@ -143,6 +141,10 @@ class DataTransformer {
   Phase phase_;
   Blob<Dtype> data_mean_;
   vector<Dtype> mean_values_;
+
+  vector<float> custom_scale_ratios_;
+  int max_distort_;
+
 };
 
 }  // namespace caffe
