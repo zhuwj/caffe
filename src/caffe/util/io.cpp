@@ -16,6 +16,7 @@
 #include "caffe/common.hpp"
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/io.hpp"
+#include "caffe/util/benchmark.hpp"
 
 const int kProtoReadBytesLimit = INT_MAX;  // Max size of 2 GB minus 1 byte.
 
@@ -303,71 +304,104 @@ void hdf5_save_nd_dataset<double>(
   CHECK_GE(status, 0) << "Failed to make double dataset " << dataset_name;
 }
 
+void ReadImage2String(const cv::Mat &cv_img, string &datum_tmp, int &id)
+{
+  const bool is_color = cv_img.channels() == 3;
+  if (!is_color)
+    CHECK_EQ(cv_img.channels(), 1) << "image channel should be 1 or 3";
+
+  const int hei = cv_img.rows, wid = cv_img.cols;
+  if (is_color)
+  {
+    cv::Mat bgr[3];
+    cv::split(cv_img, bgr);
+
+    for (int c = 0; c < 3; c++)
+    {
+      cv::Mat &img = bgr[c];
+      for (int h = 0; h < hei; ++h)
+      {
+        const uchar *prow = img.ptr<uchar>(h);
+        for (int w = 0; w < wid; ++w)
+          datum_tmp[id++] = static_cast<char>(prow[w]);
+      }
+    }
+  }
+  else
+  {
+    for (int h = 0; h < hei; ++h)
+    {
+      const uchar *prow = cv_img.ptr<uchar>(h);
+      for (int w = 0; w < wid; ++w)
+        datum_tmp[id++] = static_cast<char>(prow[w]);
+    }
+  }
+}
+
+
 bool ReadSegmentRGBToDatum(const string& filename, const int label,
     const vector<int> offsets, const int height, const int width, const int length, Datum* datum, bool is_color){
-  cv::Mat cv_img;
-  string* datum_string;
+
+  string datum_tmp;  
+  int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_GRAYSCALE);
+
+  int id = 0;
   char tmp[30];
-  int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
-      CV_LOAD_IMAGE_GRAYSCALE);
-  for (int i = 0; i < offsets.size(); ++i){
+  for (int i = 0; i < offsets.size(); ++i)
+  {
     int offset = offsets[i];
-    for (int file_id = 0; file_id < length; ++file_id){
+    for (int file_id = 0; file_id < length; ++file_id)
+    {
       sprintf(tmp,"%d.jpg",int(file_id+offset));
       string filename_t = filename + "/" + tmp;
+
       cv::Mat cv_img_origin = cv::imread(filename_t, cv_read_flag);
       if (!cv_img_origin.data){
         LOG(ERROR) << "Could not load file " << filename_t;
         return false;
       }
+
+      cv::Mat cv_img;
       if (height > 0 && width > 0){
         cv::resize(cv_img_origin, cv_img, cv::Size(width, height));
       }else{
         cv_img = cv_img_origin;
       }
+
       int num_channels = (is_color ? 3 : 1);
-      if (file_id==0 && i==0){
+      const int hei = cv_img.rows, wid = cv_img.cols;
+      if (file_id==0 && i==0)
+      {
         datum->set_channels(num_channels*length*offsets.size());
-        datum->set_height(cv_img.rows);
-        datum->set_width(cv_img.cols);
+        datum->set_height(hei);
+        datum->set_width(wid);
         datum->set_label(label);
         datum->clear_data();
-        datum->clear_float_data();
-        datum_string = datum->mutable_data();
+        datum->clear_float_data();        
+        datum_tmp.resize(hei * wid * datum->channels());
       }
-      if (is_color) {
-          for (int c = 0; c < num_channels; ++c) {
-            for (int h = 0; h < cv_img.rows; ++h) {
-              for (int w = 0; w < cv_img.cols; ++w) {
-                datum_string->push_back(
-                  static_cast<char>(cv_img.at<cv::Vec3b>(h, w)[c]));
-              }
-            }
-          }
-        } else {  // Faster than repeatedly testing is_color for each pixel w/i loop
-          for (int h = 0; h < cv_img.rows; ++h) {
-            for (int w = 0; w < cv_img.cols; ++w) {
-              datum_string->push_back(
-                static_cast<char>(cv_img.at<uchar>(h, w)));
-              }
-            }
-        }
+
+      ReadImage2String(cv_img, datum_tmp, id);
     }
   }
+
+  datum->set_data(datum_tmp);
   return true;
 }
 
 bool ReadSegmentFlowToDatum(const string& filename, const int label,
     const vector<int> offsets, const int height, const int width, const int length, Datum* datum, const bool is_color){
-  cv::Mat cv_img_x, cv_img_y;
-  string* datum_string;
-  char tmp[30];
-  int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
-	  CV_LOAD_IMAGE_GRAYSCALE);
+  cv::Mat cv_img_x, cv_img_y;  
+  int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_GRAYSCALE);
   int num_channels = is_color ? 3 : 1;
-  for (int i = 0; i < offsets.size(); ++i){
+
+  int id = 0;
+  char tmp[30];
+  for (int i = 0; i < offsets.size(); ++i)
+  {
     int offset = offsets[i];
-    for (int file_id = 0; file_id < length; ++file_id){
+    for (int file_id = 0; file_id < length; ++file_id)
+    {
       sprintf(tmp,"%d_x.png",int(file_id+offset));
       string filename_x = filename + "/" + tmp;
       cv::Mat cv_img_origin_x = cv::imread(filename_x, cv_read_flag);
@@ -386,53 +420,25 @@ bool ReadSegmentFlowToDatum(const string& filename, const int label,
         cv_img_y = cv_img_origin_y;
       }
 
-      if (file_id==0 && i==0){        
-        // printf("size(cv_img_x) = [%d, %d, %d]\n", cv_img_x.rows, cv_img_x.cols, cv_img_x.channels());
-        // cv::imshow("cv_img_x", cv_img_x);
-        // cv::waitKey();
-
+      const int hei = cv_img_x.rows, wid = cv_img_x.cols;
+      if (file_id==0 && i==0)
+      {
         datum->set_channels(num_channels*length*offsets.size() * 2);
-        datum->set_height(cv_img_x.rows);
-        datum->set_width(cv_img_x.cols);
+        datum->set_height(hei);
+        datum->set_width(wid);
         datum->set_label(label);
         datum->clear_data();
-        datum->clear_float_data();
-        datum_string = datum->mutable_data();
+        datum->clear_float_data();    
+        datum->mutable_data()->resize(hei * wid * datum->channels());
       }
 
-      if (is_color) {
-          for (int c = 0; c < num_channels; ++c) {
-            for (int h = 0; h < cv_img_x.rows; ++h) {
-              for (int w = 0; w < cv_img_x.cols; ++w) {
-                datum_string->push_back(
-                  static_cast<char>(cv_img_x.at<cv::Vec3b>(h, w)[c]));
-              }
-            }
-          }
-
-          for (int c = 0; c < num_channels; ++c) {
-            for (int h = 0; h < cv_img_y.rows; ++h) {
-              for (int w = 0; w < cv_img_y.cols; ++w) {
-                datum_string->push_back(
-                  static_cast<char>(cv_img_y.at<cv::Vec3b>(h, w)[c]));
-              }
-            }
-          }
-
-        } else {  // Faster than repeatedly testing is_color for each pixel w/i loop
-  	      for (int h = 0; h < cv_img_x.rows; ++h){
-  	        for (int w = 0; w < cv_img_x.cols; ++w){
-  	          datum_string->push_back(static_cast<char>(cv_img_x.at<uchar>(h,w)));
-  	        }
-  	      }
-  	      for (int h = 0; h < cv_img_y.rows; ++h){
-  	        for (int w = 0; w < cv_img_y.cols; ++w){
-  	          datum_string->push_back(static_cast<char>(cv_img_y.at<uchar>(h,w)));
-  	        }
-  	      }
-        }
+      string &datum_ref = *(datum->mutable_data());
+      ReadImage2String(cv_img_x, datum_ref, id);
+      ReadImage2String(cv_img_y, datum_ref, id);
     }
   }
+
   return true;
 }
+
 }  // namespace caffe

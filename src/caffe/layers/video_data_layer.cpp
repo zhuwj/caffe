@@ -10,6 +10,7 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
+#include "caffe/util/benchmark.hpp"
 
 #ifdef USE_MPI
 #include "mpi.h"
@@ -109,6 +110,8 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 	const bool flow_is_color = this->layer_param_.video_data_param().flow_is_color();
 	const int lines_size = lines_.size();
 
+	//float time_flow, time_rgb;
+	//time_flow = time_rgb = 0.f;
 	for (int item_id = 0; item_id < batch_size; ++item_id){
 		CHECK_GT(lines_size, lines_id_);
 		vector<int> offsets;
@@ -117,7 +120,7 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		int average_duration = (int) lines_duration_[lines_id_] / num_segments;
 		for (int i = 0; i < num_segments; ++i){
 			if (this->phase_==TRAIN){
-				caffe::rng_t* frame_rng = static_cast<caffe::rng_t*>(frame_prefetch_rng_->generator());
+				caffe::rng_t* frame_rng = static_cast<caffe::rng_t*>(frame_prefetch_rng_->generator());				
 				int offset = (*frame_rng)() % (average_duration - new_length + 1);
 				offsets.push_back(offset+i*average_duration);
 			} else{
@@ -125,18 +128,26 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 			}
 		}
 		if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW){
+			//CPUTimer timer;
+			//timer.Start();
 			if(!ReadSegmentFlowToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets, new_height, new_width, new_length, &datum, flow_is_color)) {
 				continue;
 			}
+			//time_flow += timer.MicroSeconds();
+
 		} else{
+			//CPUTimer timer;
+			//timer.Start();			
 			if(!ReadSegmentRGBToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets, new_height, new_width, new_length, &datum, true)) {
 				continue;
 			}
+			//time_rgb += timer.MicroSeconds();
 		}
 
 		int offset1 = this->prefetch_data_.offset(item_id);
     	this->transformed_data_.set_cpu_data(top_data + offset1);
-		this->data_transformer_->Transform(datum, &(this->transformed_data_));
+    	const int chn_flow_single = flow_is_color ? 3 : 1;
+		this->data_transformer_->Transform(datum, &(this->transformed_data_), chn_flow_single);
 		top_label[item_id] = lines_[lines_id_].second;
 		//LOG()
 
@@ -150,6 +161,12 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 			}
 		}
 	}
+
+	// if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW)
+	// 		printf("read %d flow images cost %.f ms\n\n\n", batch_size, time_flow);
+	// else
+	// 		printf("read %d rgb images cost %.f ms\n\n\n", batch_size, time_rgb);
+
 }
 
 INSTANTIATE_CLASS(VideoDataLayer);
