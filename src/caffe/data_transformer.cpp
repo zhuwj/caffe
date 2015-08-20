@@ -320,6 +320,39 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
 }
 
 template<typename Dtype>
+void DataTransformer<Dtype>::Transform(const Datum& datum, Dtype* transformed_data, 
+                  const int num, const int channels, const int height, const int width, const int chn_flow_single)
+{
+  // If datum is encoded, decoded and transform the cv::image.
+  CHECK(!datum.encoded());
+  if (param_.force_color() || param_.force_gray()) {
+    LOG(ERROR) << "force_color and force_gray only for encoded datum";
+  }
+
+  const int crop_size = param_.crop_size();
+  const int datum_channels = datum.channels();
+  const int datum_height = datum.height();
+  const int datum_width = datum.width();
+
+  // Check dimensions.
+  CHECK_EQ(channels, datum_channels);
+  CHECK_LE(height, datum_height);
+  CHECK_LE(width, datum_width);
+  CHECK_GE(num, 1);
+
+  if (crop_size) {
+    CHECK_EQ(crop_size, height);
+    CHECK_EQ(crop_size, width);
+  } else {
+    CHECK_EQ(datum_height, height);
+    CHECK_EQ(datum_width, width);
+  }
+
+  Transform(datum, transformed_data, chn_flow_single);
+}
+
+
+template<typename Dtype>
 void DataTransformer<Dtype>::Transform(const vector<Datum> & datum_vector,
                                        Blob<Dtype>* transformed_blob) {
   const int datum_num = datum_vector.size();

@@ -37,6 +37,12 @@ class DataTransformer {
    */
   void Transform(const Datum& datum, Blob<Dtype>* transformed_blob, const int chn_flow_single = 0);
 
+
+  void Transform(const Datum& datum, Dtype* transformed_data, const int num, const int channels, const int height, const int width, const int chn_flow_single);
+
+
+  void Transform(const Datum& datum, Dtype* transformed_data, const int chn_flow_single = 0);
+
   /**
    * @brief Applies the transformation defined in the data layer's
    * transform_param block to a vector of Datum.
@@ -132,7 +138,6 @@ class DataTransformer {
    */
   virtual int Rand(int n);
 
-  void Transform(const Datum& datum, Dtype* transformed_data, const int chn_flow_single = 0);
   // Tranformation parameters
   TransformationParameter param_;
 

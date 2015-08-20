@@ -104,6 +104,7 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 	const int batch_size = video_data_param.batch_size();
 	const int new_height = video_data_param.new_height();
 	const int new_width = video_data_param.new_width();
+	CHECK(new_height > 0 && new_width > 0) << "size_resize should be set";
 	const int new_length = video_data_param.new_length();
 	const int num_segments = video_data_param.num_segments();
 	string root_folder = video_data_param.root_folder();
@@ -126,7 +127,8 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 
 		int average_duration = (int) lines_duration_[lines_id_loc] / num_segments;
 		CHECK_GT(average_duration - new_length, 0) << "average_duration should be larger than new_length (" << average_duration <<  " v.s. " << new_length << ")";
-
+		
+		const int chn_flow_single = flow_is_color ? 3 : 1;
 		for (int i = 0; i < num_segments; ++i){
 			if (this->phase_==TRAIN){
 				caffe::rng_t* frame_rng = static_cast<caffe::rng_t*>(frame_prefetch_rng_->generator());				
@@ -137,25 +139,30 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 			}
 		}
 		if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW){
-			if(!ReadSegmentFlowToDatum(root_folder + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets, new_height, new_width, new_length, &datum, flow_is_color)) {
+			if(!ReadSegmentFlowToDatum(root_folder + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets, new_height, new_width, new_length, &datum, flow_is_color))				
 				continue;
-			}
-
 		} else{		
-			if(!ReadSegmentRGBToDatum(root_folder + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets, new_height, new_width, new_length, &datum, true)) {
+			if(!ReadSegmentRGBToDatum(root_folder + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets, new_height, new_width, new_length, &datum, true))
 				continue;
-			}
 		}
 
 		int offset1 = this->prefetch_data_.offset(item_id);
-		const int chn_flow_single = flow_is_color ? 3 : 1; //will not affect anything for rgb stream
+		
 		
 		// this->transformed_data_.set_cpu_data(top_data + offset1);    	
 		// this->data_transformer_->Transform(datum, &(this->transformed_data_), chn_flow_single);
 
 		Blob<Dtype> transformed_data_loc;
+		vector<int> top_shape = this->data_transformer_->InferBlobShape(datum);
+		transformed_data_loc.Reshape(top_shape);
 		transformed_data_loc.set_cpu_data(top_data + offset1);
 		this->data_transformer_->Transform(datum, &(transformed_data_loc), chn_flow_single);
+
+
+		int chn_loc = this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW ? (chn_flow_single * 2 * new_length * num_segments) : (3 * num_segments);
+		// vector<int> top_shape = this->data_transformer_->InferBlobShape(datum);
+		// this->data_transformer_->Transform(datum, top_data + offset1, 1, chn_loc, top_shape[2], top_shape[3], chn_flow_single);
+
 
 		top_label[item_id] = lines_[lines_id_loc].second;
 	}
