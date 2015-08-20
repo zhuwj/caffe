@@ -148,10 +148,15 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		}
 
 		int offset1 = this->prefetch_data_.offset(item_id);
-    	this->transformed_data_.set_cpu_data(top_data + offset1);
-    	const int chn_flow_single = flow_is_color ? 3 : 1; //will not affect anything for rgb stream
+		const int chn_flow_single = flow_is_color ? 3 : 1; //will not affect anything for rgb stream
+		
+		// this->transformed_data_.set_cpu_data(top_data + offset1);    	
+		// this->data_transformer_->Transform(datum, &(this->transformed_data_), chn_flow_single);
 
-		this->data_transformer_->Transform(datum, &(this->transformed_data_), chn_flow_single);
+		Blob<Dtype> transformed_data_loc;
+		transformed_data_loc.set_cpu_data(top_data + offset1);
+		this->data_transformer_->Transform(datum, &(transformed_data_loc), chn_flow_single);
+
 		top_label[item_id] = lines_[lines_id_loc].second;
 	}
 
