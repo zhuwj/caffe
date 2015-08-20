@@ -11,6 +11,7 @@
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
 #include "caffe/util/benchmark.hpp"
+#include <omp.h>
 
 #ifdef USE_MPI
 #include "mpi.h"
@@ -96,7 +97,6 @@ void VideoDataLayer<Dtype>::ShuffleVideos(){
 template <typename Dtype>
 void VideoDataLayer<Dtype>::InternalThreadEntry(){
 
-	Datum datum;
 	CHECK(this->prefetch_data_.count());
 	Dtype* top_data = this->prefetch_data_.mutable_cpu_data();
 	Dtype* top_label = this->prefetch_label_.mutable_cpu_data();
@@ -110,14 +110,21 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 	const bool flow_is_color = this->layer_param_.video_data_param().flow_is_color();
 	const int lines_size = lines_.size();
 
-	//float time_flow, time_rgb;
-	//time_flow = time_rgb = 0.f;
-	for (int item_id = 0; item_id < batch_size; ++item_id){
-		CHECK_GT(lines_size, lines_id_);
-		vector<int> offsets;
-		CHECK_GT(lines_duration_[lines_id_], 0) << "0 duration for video" << lines_[lines_id_].first;
+	CHECK(lines_size >= batch_size) << "too small number of data, will cause problem in parallel reading";
 
-		int average_duration = (int) lines_duration_[lines_id_] / num_segments;
+	CPUTimer timer;
+	timer.Start();
+#pragma omp parallel for   
+	for (int item_id = 0; item_id < batch_size; ++item_id){
+		printf("%d ", item_id);
+		Datum datum;
+		const int lines_id_loc = (lines_id_ + item_id) % lines_size;
+		CHECK_GT(lines_size, lines_id_loc);
+
+		vector<int> offsets;
+		CHECK_GT(lines_duration_[lines_id_loc], 0) << "0 duration for video" << lines_[lines_id_loc].first;
+
+		int average_duration = (int) lines_duration_[lines_id_loc] / num_segments;
 		for (int i = 0; i < num_segments; ++i){
 			if (this->phase_==TRAIN){
 				caffe::rng_t* frame_rng = static_cast<caffe::rng_t*>(frame_prefetch_rng_->generator());				
@@ -128,44 +135,37 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 			}
 		}
 		if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW){
-			//CPUTimer timer;
-			//timer.Start();
-			if(!ReadSegmentFlowToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets, new_height, new_width, new_length, &datum, flow_is_color)) {
+			if(!ReadSegmentFlowToDatum(root_folder + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets, new_height, new_width, new_length, &datum, flow_is_color)) {
 				continue;
 			}
-			//time_flow += timer.MicroSeconds();
 
-		} else{
-			//CPUTimer timer;
-			//timer.Start();			
-			if(!ReadSegmentRGBToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets, new_height, new_width, new_length, &datum, true)) {
+		} else{		
+			if(!ReadSegmentRGBToDatum(root_folder + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets, new_height, new_width, new_length, &datum, true)) {
 				continue;
 			}
-			//time_rgb += timer.MicroSeconds();
 		}
 
 		int offset1 = this->prefetch_data_.offset(item_id);
     	this->transformed_data_.set_cpu_data(top_data + offset1);
-    	const int chn_flow_single = flow_is_color ? 3 : 1;
+    	const int chn_flow_single = flow_is_color ? 3 : 1; //will not affect anything for rgb stream
 		this->data_transformer_->Transform(datum, &(this->transformed_data_), chn_flow_single);
 		top_label[item_id] = lines_[lines_id_].second;
-		//LOG()
-
-		//next iteration
-		lines_id_++;
-		if (lines_id_ >= lines_size) {
-			DLOG(INFO) << "Restarting data prefetching from start.";
-			lines_id_ = 0;
-			if(this->layer_param_.video_data_param().shuffle()){
-				ShuffleVideos();
-			}
-		}
 	}
 
-	// if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW)
-	// 		printf("read %d flow images cost %.f ms\n\n\n", batch_size, time_flow);
-	// else
-	// 		printf("read %d rgb images cost %.f ms\n\n\n", batch_size, time_rgb);
+	if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW)
+			printf("\nread %d flow images cost %.f ms\n\n", batch_size, timer.MicroSeconds());
+	else
+			printf("\nread %d rgb images cost %.f ms\n\n", batch_size, timer.MicroSeconds());
+
+	//next iteration
+	lines_id_ += batch_size;
+	if (lines_id_ >= lines_size) {
+		DLOG(INFO) << "Restarting data prefetching from start.";
+		lines_id_ = 0;
+		if(this->layer_param_.video_data_param().shuffle()){
+			ShuffleVideos();
+		}
+	}
 
 }
 
