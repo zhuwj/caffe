@@ -115,16 +115,18 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 	CPUTimer timer;
 	timer.Start();
 #pragma omp parallel for   
-	for (int item_id = 0; item_id < batch_size; ++item_id){
-		printf("%d ", item_id);
+	for (int item_id = 0; item_id < batch_size; ++item_id){		
 		Datum datum;
 		const int lines_id_loc = (lines_id_ + item_id) % lines_size;
 		CHECK_GT(lines_size, lines_id_loc);
+		printf("%d ", lines_id_loc);
 
 		vector<int> offsets;
 		CHECK_GT(lines_duration_[lines_id_loc], 0) << "0 duration for video" << lines_[lines_id_loc].first;
 
 		int average_duration = (int) lines_duration_[lines_id_loc] / num_segments;
+		CHECK_GT(average_duration - new_length, 0) << "average_duration should be larger than new_length (" << average_duration <<  " v.s. " << new_length << ")";
+
 		for (int i = 0; i < num_segments; ++i){
 			if (this->phase_==TRAIN){
 				caffe::rng_t* frame_rng = static_cast<caffe::rng_t*>(frame_prefetch_rng_->generator());				
@@ -148,8 +150,9 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		int offset1 = this->prefetch_data_.offset(item_id);
     	this->transformed_data_.set_cpu_data(top_data + offset1);
     	const int chn_flow_single = flow_is_color ? 3 : 1; //will not affect anything for rgb stream
+
 		this->data_transformer_->Transform(datum, &(this->transformed_data_), chn_flow_single);
-		top_label[item_id] = lines_[lines_id_].second;
+		top_label[item_id] = lines_[lines_id_loc].second;
 	}
 
 	if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW)

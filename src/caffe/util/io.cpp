@@ -423,7 +423,7 @@ bool ReadSegmentFlowToDatum(const string& filename, const int label,
       const int hei = cv_img_x.rows, wid = cv_img_x.cols;
       if (file_id==0 && i==0)
       {
-        datum->set_channels(num_channels*length*offsets.size() * 2);
+        datum->set_channels(num_channels * 2 * length * offsets.size());
         datum->set_height(hei);
         datum->set_width(wid);
         datum->set_label(label);

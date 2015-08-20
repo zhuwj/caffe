@@ -192,6 +192,7 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
     bool is_flow_x = false;
     if (param_.is_flow())
       is_flow_x = (c % (chn_flow_single * 2)) < chn_flow_single;
+    //printf("Is flow_x: %d\n", int(is_flow_x));
 
     // image resize etc needed
     if (need_imgproc){
