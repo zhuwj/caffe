@@ -120,13 +120,13 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		Datum datum;
 		const int lines_id_loc = (lines_id_ + item_id) % lines_size;
 		CHECK_GT(lines_size, lines_id_loc);
-		printf("%d ", lines_id_loc);
+		//printf("%d ", lines_id_loc);
 
 		vector<int> offsets;
 		CHECK_GT(lines_duration_[lines_id_loc], 0) << "0 duration for video" << lines_[lines_id_loc].first;
 
 		int average_duration = (int) lines_duration_[lines_id_loc] / num_segments;
-		CHECK_GT(average_duration - new_length, 0) << "average_duration should be larger than new_length (" << average_duration <<  " v.s. " << new_length << ")";
+		CHECK(average_duration - new_length >= 0) << "average_duration should be larger than new_length (" << average_duration <<  " v.s. " << new_length << ")";
 		
 		const int chn_flow_single = flow_is_color ? 3 : 1;
 		for (int i = 0; i < num_segments; ++i){
