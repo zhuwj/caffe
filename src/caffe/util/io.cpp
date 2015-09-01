@@ -402,17 +402,17 @@ bool ReadSegmentFlowToDatum(const string& filename, const int label,
     int offset = offsets[i];
     for (int file_id = 0; file_id < length; ++file_id)
     {
-      sprintf(tmp,"%d_x.png",int(file_id+offset));
+      sprintf(tmp,"%d_x.jpg",int(file_id+offset));
       string filename_x = filename + "/" + tmp;
       cv::Mat cv_img_origin_x = cv::imread(filename_x, cv_read_flag);
-      sprintf(tmp,"%d_y.png",int(file_id+offset));
+      sprintf(tmp,"%d_y.jpg",int(file_id+offset));
       string filename_y = filename + "/" + tmp;
       cv::Mat cv_img_origin_y = cv::imread(filename_y, cv_read_flag);
       if (!cv_img_origin_x.data || !cv_img_origin_y.data){
         LOG(ERROR) << "Could not load file " << filename_x << " or " << filename_y;
         return false;
       }
-      if (height > 0 && width > 0){
+      if (height > 0 && width > 0 && (height != cv_img_origin_x.rows ||  width != cv_img_origin_x.cols)){
         cv::resize(cv_img_origin_x, cv_img_x, cv::Size(width, height));
         cv::resize(cv_img_origin_y, cv_img_y, cv::Size(width, height));
       }else{
