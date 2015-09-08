@@ -412,7 +412,7 @@ bool ReadSegmentFlowToDatum(const string& filename, const int label,
         LOG(ERROR) << "Could not load file " << filename_x << " or " << filename_y;
         return false;
       }
-      if (height > 0 && width > 0){
+      if (height > 0 && width > 0 && (height != cv_img_origin_x.rows ||  width != cv_img_origin_x.cols)){
         cv::resize(cv_img_origin_x, cv_img_x, cv::Size(width, height));
         cv::resize(cv_img_origin_y, cv_img_y, cv::Size(width, height));
       }else{
@@ -423,7 +423,7 @@ bool ReadSegmentFlowToDatum(const string& filename, const int label,
       const int hei = cv_img_x.rows, wid = cv_img_x.cols;
       if (file_id==0 && i==0)
       {
-        datum->set_channels(num_channels*length*offsets.size() * 2);
+        datum->set_channels(num_channels * 2 * length * offsets.size());
         datum->set_height(hei);
         datum->set_width(wid);
         datum->set_label(label);

@@ -1,9 +1,9 @@
 clear,clc
 
 fold = 10 * 2;
-net_model = '/data1/deep_action/models/bvlc_googlenet/deploy.prototxt';
-net_weights_src = '/data1/deep_action/models/bvlc_googlenet/bvlc_googlenet.caffemodel';
-net_weights_dst = ['/data1/deep_action/models/bvlc_googlenet/bvlc_googlenet_fold_', num2str(fold), '.caffemodel'];
+net_model = '/data1/deep_action/models/googlenet/deploy.prototxt';
+net_weights_src = '/data1/deep_action/models/googlenet/bvlc_googlenet.caffemodel';
+net_weights_dst = ['/data1/deep_action/models/googlenet/bvlc_googlenet_fold_', num2str(fold), '.caffemodel'];
 net = caffe.Net(net_model, net_weights_src, 'train');
 
 % name = 'conv1/7x7_s2';
