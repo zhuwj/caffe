@@ -412,7 +412,7 @@ bool ReadSegmentFlowToDatum(const string& filename, const int label,
         LOG(ERROR) << "Could not load file " << filename_x << " or " << filename_y;
         return false;
       }
-      if (height > 0 && width > 0){
+      if (height > 0 && width > 0 && (height != cv_img_origin_x.rows ||  width != cv_img_origin_x.cols)){
         cv::resize(cv_img_origin_x, cv_img_x, cv::Size(width, height));
         cv::resize(cv_img_origin_y, cv_img_y, cv::Size(width, height));
       }else{
