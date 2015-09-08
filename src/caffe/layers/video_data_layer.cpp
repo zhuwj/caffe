@@ -168,9 +168,9 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 	}
 
 	if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW)
-			printf("\nread %d flow images cost %.f ms\n\n", batch_size, timer.MicroSeconds());
+			printf("read %d flow images cost %.f ms\n", batch_size, timer.MicroSeconds()/1000);
 	else
-			printf("\nread %d rgb images cost %.f ms\n\n", batch_size, timer.MicroSeconds());
+			printf("read %d rgb images cost %.f ms\n", batch_size, timer.MicroSeconds()/1000);
 
 	//next iteration
 	lines_id_ += batch_size;
