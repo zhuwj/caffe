@@ -31,8 +31,8 @@ DEFINE_string(weights, "",
 DEFINE_int32(iterations, 50,
     "The number of iterations to run.");
 
-DEFINE_string(feafolder, "",
-    "Optional; folder for feature saving");
+DEFINE_string(feafile, "",
+    "Optional; file path for feature saving");
 DEFINE_string(feaname, "",
     "Optional; specify feature name for saving");
 
@@ -187,11 +187,11 @@ int test() {
   LOG(INFO) << "Running for " << FLAGS_iterations << " iterations.";
 
   //open feature file
-  bool savefea = FLAGS_feafolder.size() > 0 && FLAGS_feaname.size() > 0;
+  bool savefea = FLAGS_feafile.size() > 0 && FLAGS_feaname.size() > 0;
   FILE *fid = NULL;
   if (savefea)
   {
-    std::string path_feafile = FLAGS_feafolder + "/" + ReplaceSep(FLAGS_feaname, '/', '_') + ".binfile";
+    std::string path_feafile = FLAGS_feafile + "_" + FLAGS_feaname + ".bin";
     fid = fopen(path_feafile.c_str(), "wb");
     if (NULL == fid)
     {
