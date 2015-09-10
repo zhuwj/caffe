@@ -366,5 +366,60 @@ protected:
 	vector<int> lines_duration_;
 	int lines_id_;
 };
+
+template <typename Dtype>
+class Video2DataLayer : public BasePrefetchingDataLayer<Dtype> {
+public:
+	explicit Video2DataLayer(const LayerParameter& param)
+	: BasePrefetchingDataLayer<Dtype>(param)
+  // transform_param_rgb_(param.transform_rgb_param()),
+  // transform_param_flow_(param.transform_flow_param())
+  {}
+	virtual ~Video2DataLayer();
+	virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
+			const vector<Blob<Dtype>*>& top);
+
+	virtual inline const char* type() const { return "VideoData"; }
+	virtual inline int ExactNumBottomBlobs() const { return 0; }
+	virtual inline int ExactNumTopBlobs() const { return 2; }
+
+protected:
+	shared_ptr<Caffe::RNG> prefetch_rng_;
+	shared_ptr<Caffe::RNG> prefetch_rng_2_;
+	shared_ptr<Caffe::RNG> prefetch_rng_1_;
+	shared_ptr<Caffe::RNG> frame_prefetch_rng_;
+
+	Blob<Dtype> prefetch_data_rgb_;
+	Blob<Dtype> prefetch_data_flow_;
+	Blob<Dtype> transformed_data_rgb_;
+	Blob<Dtype> transformed_data_flow_;
+
+ //  TransformationParameter transform_rgb_param_;
+ //  TransformationParameter transform_flow_param_;
+	// shared_ptr<DataTransformer<Dtype> > data_transformer_rgb_;
+	// shared_ptr<DataTransformer<Dtype> > data_transformer_flow_;
+
+	virtual void ShuffleVideos();
+	virtual void InternalThreadEntry();
+
+#ifdef USE_MPI
+	inline virtual void advance_cursor(){
+		lines_id_++;
+		if (lines_id_ >= lines_.size()) {
+			// We have reached the end. Restart from the first.
+			DLOG(INFO) << "Restarting data prefetching from start.";
+			lines_id_ = 0;
+			if (this->layer_param_.video_data_param().shuffle()) {
+				ShuffleVideos();
+			}
+		}
+	}
+#endif
+
+	vector<std::pair<std::string, int> > lines_;
+	vector<int> lines_duration_;
+	int lines_id_;
+};
+
 }  // namespace caffe
 #endif  // CAFFE_DATA_LAYERS_HPP_

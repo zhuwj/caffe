@@ -15,6 +15,7 @@ template<typename Dtype>
 DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param,
     Phase phase)
     : param_(param), phase_(phase) {
+
   // check if we want to use mean_file
   if (param_.has_mean_file()) {
     CHECK_EQ(param_.mean_value_size(), 0) <<
@@ -34,6 +35,44 @@ DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param,
     }
   }
 
+  // RGB: check if we want to use mean_file
+  if (param_.has_mean_file_rgb()) {
+    CHECK_EQ(param_.mean_value_rgb_size(), 0) <<
+      "Cannot specify mean_file and mean_value at the same time";
+    const string& mean_file = param.mean_file_rgb();
+    LOG(INFO) << "Loading mean file from: " << mean_file;
+    BlobProto blob_proto;
+    ReadProtoFromBinaryFileOrDie(mean_file.c_str(), &blob_proto);
+    data_mean_rgb_.FromProto(blob_proto);
+  }
+  // RGB: check if we want to use mean_value
+  if (param_.mean_value_rgb_size() > 0) {
+    CHECK(param_.has_mean_file_rgb() == false) <<
+      "Cannot specify mean_file and mean_value at the same time";
+    for (int c = 0; c < param_.mean_value_rgb_size(); ++c) {
+      mean_values_rgb_.push_back(param_.mean_value_rgb(c));
+    }
+  }
+
+  // FLOW: check if we want to use mean_file
+  if (param_.has_mean_file_flow()) {
+    CHECK_EQ(param_.mean_value_flow_size(), 0) <<
+      "Cannot specify mean_file and mean_value at the same time";
+    const string& mean_file = param.mean_file_flow();
+    LOG(INFO) << "Loading mean file from: " << mean_file;
+    BlobProto blob_proto;
+    ReadProtoFromBinaryFileOrDie(mean_file.c_str(), &blob_proto);
+    data_mean_flow_.FromProto(blob_proto);
+  }
+  // FLOW: check if we want to use mean_value
+  if (param_.mean_value_flow_size() > 0) {
+    CHECK(param_.has_mean_file_flow() == false) <<
+      "Cannot specify mean_file and mean_value at the same time";
+    for (int c = 0; c < param_.mean_value_flow_size(); ++c) {
+      mean_values_flow_.push_back(param_.mean_value_flow(c));
+    }
+  }
+
   //load multiscale info
   max_distort_ = param_.max_distort();
   custom_scale_ratios_.clear();
@@ -41,7 +80,6 @@ DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param,
     custom_scale_ratios_.push_back(param_.scale_ratios(i));
   }
 }
-
 
 
 /** @build fixed crop offsets for random selection
@@ -270,6 +308,234 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
 }
 
 template<typename Dtype>
+void Transform_loc(const Datum& datum, const int chn_flow_single, Dtype* mean, vector<Dtype> &mean_values, const int h_off, const int w_off, const int crop_height, const int crop_width, const int crop_size, 
+  const bool do_mirror, const bool isflow, const bool need_imgproc, const int scale, const bool do_multi_scale, Dtype* transformed_data)
+{
+  const int datum_channels = datum.channels();
+  const int datum_height = datum.height();
+  const int datum_width = datum.width();
+  const string& data = datum.data();
+  const bool has_uint8 = data.size() > 0;
+  cv::Mat multi_scale_bufferM;
+
+  const bool has_mean_file = (mean != NULL);
+  const bool has_mean_values = !mean_values.empty();
+  CHECK(!(has_mean_file && has_mean_file));
+
+  int height = datum_height;
+  int width = datum_width;
+  if (crop_size) {
+    height = crop_size;
+    width = crop_size;
+  }
+
+  //do transformation
+  Dtype datum_element;
+  int top_index, data_index;
+  for (int c = 0; c < datum_channels; ++c) {
+    bool is_flow_x = false;
+    if (isflow)
+      is_flow_x = (c % (chn_flow_single * 2)) < chn_flow_single;
+
+    // image resize etc needed
+    if (need_imgproc){
+      cv::Mat M(datum_height, datum_width, has_uint8 ? CV_8UC1 : CV_32FC1);
+
+      //put the datum content to a cvMat
+      for (int h = 0; h < datum_height; ++h) {
+        for (int w = 0; w < datum_width; ++w) {
+          int data_index = (c * datum_height + h) * datum_width + w;
+          if (has_uint8) {
+            M.at<uchar>(h, w) = static_cast<uint8_t>(data[data_index]);
+          }else{
+            M.at<float>(h, w) = datum.float_data(data_index);
+          }
+        }
+      }
+
+      //resize the cropped patch to network input size
+      cv::Mat cropM(M, cv::Rect(w_off, h_off, crop_width, crop_height));
+      cv::resize(cropM, multi_scale_bufferM, cv::Size(crop_size, crop_size));
+    }
+
+    for (int h = 0; h < height; ++h) {
+      for (int w = 0; w < width; ++w) {
+        data_index = (c * datum_height + h_off + h) * datum_width + w_off + w;
+        if (do_mirror) {
+          top_index = (c * height + h) * width + (width - 1 - w);
+        } else {
+          top_index = (c * height + h) * width + w;
+        }
+
+        if (need_imgproc){
+          if (has_uint8){
+            if (isflow && do_mirror && is_flow_x)
+              datum_element = 255 - static_cast<Dtype>(multi_scale_bufferM.at<uint8_t>(h, w));
+            else
+              datum_element = static_cast<Dtype>(multi_scale_bufferM.at<uint8_t>(h, w));
+          }else {
+            if (isflow && do_mirror && is_flow_x)
+              datum_element = 255 - static_cast<Dtype>(multi_scale_bufferM.at<float>(h, w));
+            else
+              datum_element = static_cast<Dtype>(multi_scale_bufferM.at<float>(h, w));
+          }
+        }else {
+          if (has_uint8) {
+            if (isflow && do_mirror && is_flow_x)
+              datum_element = 255 - static_cast<Dtype>(static_cast<uint8_t>(data[data_index]));
+            else
+              datum_element = static_cast<Dtype>(static_cast<uint8_t>(data[data_index]));
+          } else {
+            if (isflow && do_mirror && is_flow_x)
+              datum_element = 255 - datum.float_data(data_index);
+            else
+              datum_element = datum.float_data(data_index);
+          }
+        }
+        if (has_mean_file) {
+          if (do_multi_scale) {
+            int fixed_data_index = (c * datum_height +  h) * datum_width + w;
+            transformed_data[top_index] =
+                (datum_element - mean[fixed_data_index]) * scale;
+          }else{
+            transformed_data[top_index] =
+                (datum_element - mean[data_index]) * scale;
+          }
+        } else {
+          if (has_mean_values) {
+            transformed_data[top_index] =
+                (datum_element - mean_values[c]) * scale;
+          } else {
+            transformed_data[top_index] = datum_element * scale;
+          }
+        }
+      }
+    }
+  }
+}
+
+template<typename Dtype>
+void DataTransformer<Dtype>::Transform(const Datum& datum_rgb, const Datum& datum_flow,
+                                       Dtype* transformed_data_rgb, Dtype* transformed_data_flow, const int chn_flow_single) {
+  //input datum related paras
+  const int datum_channels_rgb = datum_rgb.channels();
+  const int datum_channels_flow = datum_flow.channels();
+  const int datum_height = datum_rgb.height();
+  const int datum_width = datum_rgb.width();
+  CHECK(datum_flow.height() == datum_height);
+  CHECK(datum_flow.width() == datum_width);
+
+  //shared transformer paras
+  const int crop_size = param_.crop_size();
+  const Dtype scale = param_.scale(); //scale * (pixel - mean)
+  const bool do_mirror = param_.mirror() && Rand(2);
+  const bool do_multi_scale = param_.multi_scale();
+
+  //distinct transformer paras
+  const bool has_mean_file_rgb = param_.has_mean_file_rgb();
+  const bool has_mean_file_flow = param_.has_mean_file_flow();
+  const bool has_mean_values_rgb = mean_values_rgb_.size() > 0;
+  const bool has_mean_values_flow = mean_values_flow_.size() > 0;
+
+  //checkers
+  CHECK_GE(datum_height, crop_size);
+  CHECK_GE(datum_width, crop_size);  
+  CHECK_GT(datum_channels_rgb, 0);
+  CHECK_GT(datum_channels_flow, 0);
+  CHECK_GE(chn_flow_single, 1);
+  CHECK_GE(datum_channels_flow % (chn_flow_single * 2), 0);
+
+  //get mean pixel
+  Dtype* mean_rgb = NULL;
+  if (has_mean_file_rgb) {
+    CHECK_EQ(datum_channels_rgb, data_mean_rgb_.channels());
+    CHECK_EQ(datum_height, data_mean_rgb_.height());
+    CHECK_EQ(datum_width, data_mean_rgb_.width());
+    mean_rgb = data_mean_rgb_.mutable_cpu_data();
+  }
+  if (has_mean_values_rgb) {
+    CHECK(mean_values_rgb_.size() == 1 || mean_values_rgb_.size() == datum_channels_rgb) <<
+     "Specify either 1 mean_value or as many as channels: " << datum_channels_rgb;
+    if (datum_channels_rgb > 1 && mean_values_rgb_.size() == 1) {
+      // Replicate the mean_value for simplicity
+      for (int c = 1; c < datum_channels_rgb; ++c) {
+        mean_values_rgb_.push_back(mean_values_rgb_[0]);
+      }
+    }
+  }
+
+  Dtype* mean_flow = NULL;
+  if (has_mean_file_flow) {
+    CHECK_EQ(datum_channels_flow, data_mean_flow_.channels());
+    CHECK_EQ(datum_height, data_mean_flow_.height());
+    CHECK_EQ(datum_width, data_mean_flow_.width());
+    mean_flow = data_mean_flow_.mutable_cpu_data();
+  }
+  if (has_mean_values_flow) {
+    CHECK(mean_values_flow_.size() == 1 || mean_values_flow_.size() == datum_channels_flow) <<
+     "Specify either 1 mean_value or as many as channels: " << datum_channels_flow;
+    if (datum_channels_flow > 1 && mean_values_flow_.size() == 1) {
+      // Replicate the mean_value for simplicity
+      for (int c = 1; c < datum_channels_flow; ++c) {
+        mean_values_flow_.push_back(mean_values_flow_[0]);
+      }
+    }
+  }
+
+  if (!crop_size && do_multi_scale){
+    LOG(ERROR)<< "Multi scale augmentation is only activated with crop_size set.";
+  }
+
+  //prepare augmentation (specify cropping rectangle, do_flip)
+  vector<pair<int, int> > offset_pairs;
+  vector<pair<int, int> > crop_size_pairs;
+  int h_off = 0;
+  int w_off = 0;
+  int crop_height = 0;
+  int crop_width = 0;
+  bool need_imgproc = false;
+  if (crop_size) {
+    // We only do random crop when we do training.
+    if (phase_ == TRAIN) {
+      // If in training and we need multi-scale cropping, reset the crop size params
+      if (do_multi_scale){
+        fillCropSize(datum_height, datum_width, crop_size, crop_size, crop_size_pairs,
+                     max_distort_, custom_scale_ratios_);
+        int sel = Rand(crop_size_pairs.size());
+        crop_height = crop_size_pairs[sel].first;
+        crop_width = crop_size_pairs[sel].second;
+      }else{
+        crop_height = crop_size;
+        crop_width = crop_size;
+      }
+      if (param_.fix_crop()){
+        fillFixOffset(datum_height, datum_width, crop_height, crop_width, offset_pairs);
+        int sel = Rand(offset_pairs.size());
+        h_off = offset_pairs[sel].first;
+        w_off = offset_pairs[sel].second;
+      }else{
+        h_off = Rand(datum_height - crop_height + 1);
+        w_off = Rand(datum_width - crop_width + 1);
+      }
+
+    } else {
+      crop_height = crop_size;
+      crop_width = crop_size;
+      h_off = (datum_height - crop_size) / 2;
+      w_off = (datum_width - crop_size) / 2;
+    }
+  }
+  need_imgproc = do_multi_scale && crop_size && ((crop_height != crop_size) || (crop_width != crop_size));
+
+  //do transformation
+  // void Transform_loc(const Datum& datum, const int chn_flow_single, Dtype* mean, vector<Dtype> &mean_values, const int h_off, const int w_off, const int crop_height, const int crop_width, const int crop_size, 
+  // const bool do_mirror, const bool isflow, const bool need_imgproc, const bool do_multi_scale, Dtype* transformed_data)
+  Transform_loc(datum_rgb, chn_flow_single, mean_rgb, mean_values_rgb_, h_off, w_off, crop_height, crop_width, crop_size, do_mirror, false, need_imgproc, scale, do_multi_scale, transformed_data_rgb);
+  Transform_loc(datum_flow, chn_flow_single, mean_flow, mean_values_flow_, h_off, w_off, crop_height, crop_width, crop_size, do_mirror, true, need_imgproc, scale, do_multi_scale, transformed_data_flow);
+}
+
+
+template<typename Dtype>
 void DataTransformer<Dtype>::Transform(const Datum& datum,
                                        Blob<Dtype>* transformed_blob, const int chn_flow_single) {
   // If datum is encoded, decoded and transform the cv::image.
@@ -320,21 +586,18 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
 }
 
 template<typename Dtype>
-void DataTransformer<Dtype>::Transform(const Datum& datum, Dtype* transformed_data, 
-                  const int num, const int channels, const int height, const int width, const int chn_flow_single)
+void CompareDatum_vs_TransforedBlob(const Datum &datum, const Blob<Dtype>* transformed_blob, const int crop_size)
 {
-  // If datum is encoded, decoded and transform the cv::image.
-  CHECK(!datum.encoded());
-  if (param_.force_color() || param_.force_gray()) {
-    LOG(ERROR) << "force_color and force_gray only for encoded datum";
-  }
-
-  const int crop_size = param_.crop_size();
   const int datum_channels = datum.channels();
   const int datum_height = datum.height();
   const int datum_width = datum.width();
 
   // Check dimensions.
+  const int channels = transformed_blob->channels();
+  const int height = transformed_blob->height();
+  const int width = transformed_blob->width();
+  const int num = transformed_blob->num();
+
   CHECK_EQ(channels, datum_channels);
   CHECK_LE(height, datum_height);
   CHECK_LE(width, datum_width);
@@ -347,9 +610,48 @@ void DataTransformer<Dtype>::Transform(const Datum& datum, Dtype* transformed_da
     CHECK_EQ(datum_height, height);
     CHECK_EQ(datum_width, width);
   }
-
-  Transform(datum, transformed_data, chn_flow_single);
 }
+
+template<typename Dtype>
+void DataTransformer<Dtype>::Transform(const Datum& datum_rgb, const Datum& datum_flow,
+                                       Blob<Dtype>* transformed_blob_rgb, Blob<Dtype>* transformed_blob_flow, const int chn_flow_single) {
+  // If datum is encoded, decoded and transform the cv::image.
+  if (datum_rgb.encoded()) {
+    // CHECK(!(param_.force_color() && param_.force_gray()))
+    //     << "cannot set both force_color and force_gray";
+    // cv::Mat cv_img;
+    // if (param_.force_color() || param_.force_gray()) {
+    // // If force_color then decode in color otherwise decode in gray.
+    //   cv_img = DecodeDatumToCVMat(datum, param_.force_color());
+    // } else {
+    //   cv_img = DecodeDatumToCVMatNative(datum);
+    // }
+    // // Transform the cv::image into blob.
+    // return Transform(cv_img, transformed_blob);
+    LOG(ERROR) << "encoded datum is not suppoted now";
+  } else {
+    if (param_.force_color() || param_.force_gray()) {
+      LOG(ERROR) << "force_color and force_gray only for encoded datum";
+    }
+  }
+
+  if (datum_flow.encoded()) {
+    LOG(ERROR) << "encoded datum is not suppoted now";
+  } else {
+    if (param_.force_color() || param_.force_gray()) {
+      LOG(ERROR) << "force_color and force_gray only for encoded datum";
+    }
+  }
+
+  const int crop_size = param_.crop_size();
+  CompareDatum_vs_TransforedBlob(datum_rgb, transformed_blob_rgb, crop_size);
+  CompareDatum_vs_TransforedBlob(datum_flow, transformed_blob_flow, crop_size);
+
+  Dtype* transformed_data_rgb = transformed_blob_rgb->mutable_cpu_data();
+  Dtype* transformed_data_flow = transformed_blob_flow->mutable_cpu_data();
+  Transform(datum_rgb, datum_flow, transformed_data_rgb, transformed_data_flow, chn_flow_single);
+}
+
 
 
 template<typename Dtype>

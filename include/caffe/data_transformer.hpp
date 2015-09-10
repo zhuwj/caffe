@@ -37,11 +37,15 @@ class DataTransformer {
    */
   void Transform(const Datum& datum, Blob<Dtype>* transformed_blob, const int chn_flow_single = 0);
 
-
-  void Transform(const Datum& datum, Dtype* transformed_data, const int num, const int channels, const int height, const int width, const int chn_flow_single);
-
+  void Transform(const Datum& datum_rgb, const Datum& datum_flow,
+                                       Blob<Dtype>* transformed_blob_rgb, Blob<Dtype>* transformed_blob_flow, const int chn_flow_single);
 
   void Transform(const Datum& datum, Dtype* transformed_data, const int chn_flow_single = 0);
+
+  void Transform(const Datum& datum_rgb, const Datum& datum_flow,
+                                       Dtype* transformed_data_rgb, Dtype* transformed_data_flow, const int chn_flow_single);
+
+
 
   /**
    * @brief Applies the transformation defined in the data layer's
@@ -144,11 +148,15 @@ class DataTransformer {
 
   shared_ptr<Caffe::RNG> rng_;
   Phase phase_;
-  Blob<Dtype> data_mean_;
-  vector<Dtype> mean_values_;
-
   vector<float> custom_scale_ratios_;
   int max_distort_;
+
+  Blob<Dtype> data_mean_;
+  Blob<Dtype> data_mean_rgb_;
+  Blob<Dtype> data_mean_flow_;
+  vector<Dtype> mean_values_;
+  vector<Dtype> mean_values_rgb_;
+  vector<Dtype> mean_values_flow_;
 
 };
 
