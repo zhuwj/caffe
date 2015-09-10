@@ -112,7 +112,8 @@ void Video2DataLayer<Dtype>::ShuffleVideos(){
 template <typename Dtype>
 void Video2DataLayer<Dtype>::InternalThreadEntry(){
 	LOG(INFO) << "entering InternalThreadEntry for Video2DataLayer";
-	CHECK(this->prefetch_data_.count());
+	CHECK(this->prefetch_data_rgb_.count());
+	CHECK(this->prefetch_data_flow_.count());
 	Dtype* top_data_rgb = this->prefetch_data_rgb_.mutable_cpu_data();
 	Dtype* top_data_flow = this->prefetch_data_flow_.mutable_cpu_data();
 	Dtype* top_label = this->prefetch_label_.mutable_cpu_data();
