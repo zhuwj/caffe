@@ -60,6 +60,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
   }
   memory_used_ = 0;
   // set the input blobs
+  LOG(INFO) << "begin to append top";
   for (int input_id = 0; input_id < param.input_size(); ++input_id) {
     const int layer_id = -1;  // inputs have fake layer ID -1
     AppendTop(param, layer_id, input_id, &available_blobs, &blob_name_to_idx);
@@ -119,8 +120,12 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
     // After this layer is connected, set it up.
     LOG(INFO) << "Setting up " << layer_names_[layer_id];
     layers_[layer_id]->SetUp(bottom_vecs_[layer_id], top_vecs_[layer_id]);
+    LOG(INFO) << "finished SetUp";
+
     for (int top_id = 0; top_id < top_vecs_[layer_id].size(); ++top_id) {
-      if (blob_loss_weights_.size() <= top_id_vecs_[layer_id][top_id]) {
+      LOG(INFO) << "top_id = " << top_id << " top number = " << top_vecs_[layer_id].size();
+
+	if (blob_loss_weights_.size() <= top_id_vecs_[layer_id][top_id]) {
         blob_loss_weights_.resize(top_id_vecs_[layer_id][top_id] + 1, Dtype(0));
       }
       blob_loss_weights_[top_id_vecs_[layer_id][top_id]] = layer->loss(top_id);

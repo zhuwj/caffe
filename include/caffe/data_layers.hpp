@@ -381,7 +381,7 @@ public:
 
 	virtual inline const char* type() const { return "VideoData"; }
 	virtual inline int ExactNumBottomBlobs() const { return 0; }
-	virtual inline int ExactNumTopBlobs() const { return 2; }
+	virtual inline int ExactNumTopBlobs() const { return 3; }
 
 protected:
 	shared_ptr<Caffe::RNG> prefetch_rng_;
