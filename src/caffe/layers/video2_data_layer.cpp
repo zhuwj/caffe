@@ -173,7 +173,8 @@ void Video2DataLayer<Dtype>::InternalThreadEntry(){
 		//this->data_transformer_->Transform(datum_flow, &(transformed_data_flow_loc), chn_flow_single);
 		this->data_transformer_->Transform(datum_rgb, datum_flow, &(transformed_data_rgb_loc), &(transformed_data_flow_loc), chn_flow_single);
 
-		top_label[item_id] = lines_[lines_id_loc].second;
+		for (int kk = num_segments * item_id; kk < num_segments * (item_id + 1); kk++)
+                   top_label[kk] = lines_[lines_id_loc].second;
 	}
 //	printf("read images cost %.f ms\n", timer.MicroSeconds()/1000);
 
