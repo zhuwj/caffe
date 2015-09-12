@@ -108,13 +108,13 @@ int main(int argc ,char **argv) {
     const vector<Blob<float>*>& result = caffe_net.Forward(bottom_vec, &iter_loss);
     //save softmax output
     const float* softmax_cpu_data = caffe_net.blob_by_name(softmax_name).get()->cpu_data();
-    LOG(INFO) << "Get softmax output";
+//    LOG(INFO) << "Get softmax output";
     for ( int j = 0; j < batch_video; ++j){
       std::ofstream outfile((saved_folder + "/" + video_names[i * (batch_video) + j] + ".txt").c_str());
       LOG(INFO) << "Begin to write "<< video_names[i * (batch_video) + j] <<".txt";
       for (int id_seg = 0; id_seg < num_seg; ++id_seg){
         for(int id_class = 0; id_class < num_class; ++id_class){
-          LOG(INFO) << j * num_each_video + id_seg * num_class + id_class << " ";
+ //         LOG(INFO) << j * num_each_video + id_seg * num_class + id_class << " ";
           outfile << softmax_cpu_data[j * num_each_video + id_seg * num_class + id_class] << " ";
         }
         outfile << "\n";
