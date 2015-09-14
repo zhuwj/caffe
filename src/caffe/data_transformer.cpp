@@ -325,7 +325,7 @@ void Transform_loc(const Datum& datum, const int chn_flow_single, Dtype* mean, v
   const int width = crop_size ? crop_size : datum_width;
 
   //do transformation
-#pragma omp parallel num_threads(8) for
+//#pragma omp parallel num_threads(8) for
   for (int c = 0; c < datum_channels; ++c) {
     Dtype datum_element;
     cv::Mat multi_scale_bufferM;
