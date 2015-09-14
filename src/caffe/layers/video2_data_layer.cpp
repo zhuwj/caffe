@@ -131,8 +131,10 @@ void Video2DataLayer<Dtype>::InternalThreadEntry(){
 
 	CPUTimer timer;
 	timer.Start();
+	CHECK((batch_size % num_segments) == 0);
+        const int batch_video = batch_size / num_segments;
 #pragma omp parallel for   
-	for (int item_id = 0; item_id < batch_size; ++item_id){
+	for (int item_id = 0; item_id < batch_video; ++item_id){
 		const int lines_id_loc = (lines_id_ + item_id) % lines_size;
 		CHECK_GT(lines_size, lines_id_loc);		
 		CHECK_GT(lines_duration_[lines_id_loc], 0) << "0 duration for video" << lines_[lines_id_loc].first;
@@ -163,7 +165,7 @@ void Video2DataLayer<Dtype>::InternalThreadEntry(){
 		transformed_data_rgb_loc.set_cpu_data(top_data_rgb + offset1);
 		//this->data_transformer_->Transform(datum_rgb, &(transformed_data_rgb_loc));
 
-		offset1 = this->prefetch_data_flow_.offset(item_id);
+		offset1 = this->prefetch_data_flow_.offset(num_segments * item_id);
 		Blob<Dtype> transformed_data_flow_loc;
 		top_shape = this->data_transformer_->InferBlobShape(datum_flow);
 		transformed_data_flow_loc.Reshape(top_shape);
@@ -171,7 +173,8 @@ void Video2DataLayer<Dtype>::InternalThreadEntry(){
 		//this->data_transformer_->Transform(datum_flow, &(transformed_data_flow_loc), chn_flow_single);
 		this->data_transformer_->Transform(datum_rgb, datum_flow, &(transformed_data_rgb_loc), &(transformed_data_flow_loc), chn_flow_single);
 
-		top_label[item_id] = lines_[lines_id_loc].second;
+		for (int kk = num_segments * item_id; kk < num_segments * (item_id + 1); kk++)
+                   top_label[kk] = lines_[lines_id_loc].second;
 	}
 //	printf("read images cost %.f ms\n", timer.MicroSeconds()/1000);
 
