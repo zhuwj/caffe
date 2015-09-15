@@ -132,6 +132,7 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 
 	CHECK((batch_size % num_segments) == 0);
         const int batch_video = batch_size / num_segments;
+	omp_set_num_threads(8);
 #pragma omp parallel for
 	for (int item_id = 0; item_id < batch_video; ++item_id){		
 		Datum datum;
@@ -141,12 +142,12 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		const int len_vid = lines_duration_[lines_id_loc];
 		CHECK_GT(len_vid, new_length);
 
-	vector<int> offsets;
+		vector<int> offsets;
 		
 		const int chn_flow_single = flow_is_color ? 3 : 1;
 		for (int i = 0; i < num_segments; ++i){
 			if (this->phase_==TRAIN){
-				CHECK(num_segments == 0);
+				CHECK(num_segments == 1);
 				caffe::rng_t* frame_rng = static_cast<caffe::rng_t*>(frame_prefetch_rng_->generator());				
 				int offset = (*frame_rng)() % (len_vid - new_length + 1);
 				offsets.push_back(offset);
@@ -164,9 +165,6 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 
 		int offset1 = this->prefetch_data_.offset(num_segments * item_id);
 		
-		
-		// this->transformed_data_.set_cpu_data(top_data + offset1);    	
-		// this->data_transformer_->Transform(datum, &(this->transformed_data_), chn_flow_single);
 
 		Blob<Dtype> transformed_data_loc;
 		vector<int> top_shape = this->data_transformer_->InferBlobShape(datum);
@@ -174,23 +172,12 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		transformed_data_loc.set_cpu_data(top_data + offset1);
 		this->data_transformer_->Transform(datum, &(transformed_data_loc), chn_flow_single);
 
-
-		// int chn_loc = this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW ? (chn_flow_single * 2 * new_length * num_segments) : (3 * num_segments);
-		// vector<int> top_shape = this->data_transformer_->InferBlobShape(datum);
-		// this->data_transformer_->Transform(datum, top_data + offset1, 1, chn_loc, top_shape[2], top_shape[3], chn_flow_single);
-
-
 		for (int kk = num_segments * item_id; kk < num_segments * (item_id + 1); kk++)
                    top_label[kk] = lines_[lines_id_loc].second;
 	}
-//
-//	if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW)
-//			printf("read %d flow images cost %.f ms\n", batch_size, timer.MicroSeconds()/1000);
-//	else
-//			printf("read %d rgb images cost %.f ms\n", batch_size, timer.MicroSeconds()/1000);
 
 	//next iteration
-	lines_id_ += batch_size;
+	lines_id_ += batch_video;
 	if (lines_id_ >= lines_size) {
 		DLOG(INFO) << "Restarting data prefetching from start.";
 		lines_id_ = 0;
@@ -198,7 +185,6 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 			ShuffleVideos();
 		}
 	}
-
 }
 
 INSTANTIATE_CLASS(VideoDataLayer);
