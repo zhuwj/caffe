@@ -159,7 +159,7 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		this->data_transformer_->Transform(datum, &(transformed_data_loc), chn_flow_single);
 
 
-		// int chn_loc = this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW ? (chn_flow_single * 2 * new_length * num_segments) : (3 * num_segments);
+		int chn_loc = this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW ? (chn_flow_single * 2 * new_length * num_segments) : (3 * num_segments);
 		// vector<int> top_shape = this->data_transformer_->InferBlobShape(datum);
 		// this->data_transformer_->Transform(datum, top_data + offset1, 1, chn_loc, top_shape[2], top_shape[3], chn_flow_single);
 

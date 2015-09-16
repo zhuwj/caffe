@@ -352,7 +352,6 @@ message LayerParameter {
   optional ThresholdParameter threshold_param = 128;
   optional WindowDataParameter window_data_param = 129;
   optional VideoDataParameter video_data_param = 140;
-  optional Video2DataParameter video2_data_param = 141;
 }
 
 // Message that stores parameters used to apply transformation
@@ -368,17 +367,10 @@ message TransformationParameter {
   optional uint32 crop_size = 3 [default = 0];
   // mean_file and mean_value cannot be specified at the same time
   optional string mean_file = 4;
-  optional string mean_file_rgb = 41;
-  optional string mean_file_flow = 42;
-
   // if specified can be repeated once (would substract it from all the channels)
   // or can be repeated the same number of times as channels
   // (would subtract them from the corresponding channel)
   repeated float mean_value = 5;
-  repeated float mean_value_rgb = 51;
-  repeated float mean_value_flow = 52;
-
-
   // Force the decoded image to have 3 color channels.
   optional bool force_color = 6 [default = false];
   // Force the decoded image to have 1 color channels.
@@ -668,41 +660,6 @@ message VideoDataParameter{
   optional string root_folder = 100 [default = ""];
   optional bool flow_is_color = 101 [default = false];
 }
-
-message Video2DataParameter{
-  // Specify the data source.
-  optional string source = 1;
-  // Specify the batch size.
-  optional uint32 batch_size = 4;
-  // The rand_skip variable is for the data layer to skip a few data points
-  // to avoid all asynchronous sgd clients to start at the same point. The skip
-  // point would be set as rand_skip * rand(0,1). Note that rand_skip should not
-  // be larger than the number of keys in the leveldb.
-  optional uint32 rand_skip = 7 [default = 0];
-  // Whether or not ImageLayer should shuffle the list of files at every epoch.
-  optional bool shuffle = 8 [default = false];
-  // It will also resize images if new_height or new_width are not zero.
-  optional uint32 new_height = 9 [default = 0];
-  optional uint32 new_width = 10 [default = 0];
-  optional uint32 new_length_rgb = 11 [default = 1];
-  optional uint32 new_length_flow = 21 [default = 20];
-  optional uint32 num_segments = 12 [default = 1];
-  // DEPRECATED. See TransformationParameter. For data pre-processing, we can do
-  // simple scaling and subtracting the data mean, if provided. Note that the
-  // mean subtraction is always carried out before scaling.
-  optional float scale = 2 [default = 1];
-  optional string mean_file_rgb = 3;
-  optional string mean_file_flow = 23;
-  // DEPRECATED. See TransformationParameter. Specify if we would like to randomly
-  // crop an image.
-  optional uint32 crop_size = 5 [default = 0];
-  // DEPRECATED. See TransformationParameter. Specify if we want to randomly mirror
-  // data.
-  optional bool mirror = 6 [default = false];
-  optional string root_folder = 100 [default = ""];
-  optional bool flow_is_color = 101 [default = false];
-}
-
 
 message InfogainLossParameter {
   // Specify the infogain matrix source.
