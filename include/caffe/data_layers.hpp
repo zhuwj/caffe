@@ -367,42 +367,11 @@ protected:
 	int lines_id_;
 };
 
-
 template <typename Dtype>
-class BasePrefetching2DataLayer :
-    public BaseDataLayer<Dtype>, public InternalThread {
- public:
-  explicit BasePrefetching2DataLayer(const LayerParameter& param)
-      : BaseDataLayer<Dtype>(param) {}
-  // LayerSetUp: implements common data layer setup functionality, and calls
-  // DataLayerSetUp to do special data layer setup for individual layer types.
-  // This method may not be overridden.
-  void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-
-  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-
-  virtual void CreatePrefetchThread();
-  virtual void JoinPrefetchThread();
-  // The thread's function
-  virtual void InternalThreadEntry() {}
-
- protected:
-  Blob<Dtype> prefetch_data_rgb_;
-  Blob<Dtype> prefetch_data_flow_;
-  Blob<Dtype> prefetch_label_;
-  Blob<Dtype> transformed_data_rgb_;
-  Blob<Dtype> transformed_data_flow_;
-};
-
-template <typename Dtype>
-class Video2DataLayer : public BasePrefetching2DataLayer<Dtype> {
+class Video2DataLayer : public BasePrefetchingDataLayer<Dtype> {
 public:
 	explicit Video2DataLayer(const LayerParameter& param)
-	: BasePrefetching2DataLayer<Dtype>(param)
+	: BasePrefetchingDataLayer<Dtype>(param)
   // transform_param_rgb_(param.transform_rgb_param()),
   // transform_param_flow_(param.transform_flow_param())
   {}
@@ -419,6 +388,11 @@ protected:
 	shared_ptr<Caffe::RNG> prefetch_rng_2_;
 	shared_ptr<Caffe::RNG> prefetch_rng_1_;
 	shared_ptr<Caffe::RNG> frame_prefetch_rng_;
+
+	Blob<Dtype> prefetch_data_rgb_;
+	Blob<Dtype> prefetch_data_flow_;
+	Blob<Dtype> transformed_data_rgb_;
+	Blob<Dtype> transformed_data_flow_;
 
  //  TransformationParameter transform_rgb_param_;
  //  TransformationParameter transform_flow_param_;
