@@ -54,16 +54,14 @@ void VideoDataLayer<Dtype>:: DataLayerSetUp(const vector<Blob<Dtype>*>& bottom, 
 	LOG(INFO) << "A total of " << lines_.size() << " videos.";
 	lines_id_ = 0;
 
+	//if (this->phase_==TRAIN)
+		CHECK(num_segments == 1) << "num_segments should be 1 for training";
+	
+	const int len_vid = int(lines_duration_[lines_id_]);
+	CHECK_GE(len_vid, new_length) << "video length should be larger than new_length";
+
+	vector<int> offsets(1, 0);
 	Datum datum;
-	const unsigned int frame_prefectch_rng_seed = caffe_rng_rand();
-	frame_prefetch_rng_.reset(new Caffe::RNG(frame_prefectch_rng_seed));
-	int average_duration = (int) lines_duration_[lines_id_]/num_segments;
-	vector<int> offsets;
-	for (int i = 0; i < num_segments; ++i){
-		caffe::rng_t* frame_rng = static_cast<caffe::rng_t*>(frame_prefetch_rng_->generator());
-		int offset = (*frame_rng)() % (average_duration - new_length + 1);
-		offsets.push_back(offset+i*average_duration);
-	}
 	if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW)
 		CHECK(ReadSegmentFlowToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets, new_height, new_width, new_length, &datum, flow_is_color));
 	else
@@ -94,6 +92,22 @@ void VideoDataLayer<Dtype>::ShuffleVideos(){
 	shuffle(lines_duration_.begin(), lines_duration_.end(),prefetch_rng2);
 }
 
+
+inline void Linspace(const int s, const int e, const int num, vector<int> &ids)
+{
+	CHECK(e >= s);
+	ids.clear();
+	if (1==num)
+		ids.push_back((s+e)/2);
+	else
+	{
+		float step = float(e - s) / (num-1);
+		for (int i = 0; i < num; i++)
+			ids.push_back(int(s + step * i));
+	}
+        
+}
+
 template <typename Dtype>
 void VideoDataLayer<Dtype>::InternalThreadEntry(){
 
@@ -121,24 +135,20 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		Datum datum;
 		const int lines_id_loc = (lines_id_ + item_id) % lines_size;
 		CHECK_GT(lines_size, lines_id_loc);
-		//printf("%d ", lines_id_loc);
+		const int len_vid = lines_duration_[lines_id_loc];
+		CHECK_GT(len_vid, new_length) << "video length should be larger than new_length";
 
 		vector<int> offsets;
-		CHECK_GT(lines_duration_[lines_id_loc], 0) << "0 duration for video" << lines_[lines_id_loc].first;
-
-		int average_duration = (int) lines_duration_[lines_id_loc] / num_segments;
-		CHECK(average_duration - new_length >= 0) << "average_duration should be larger than new_length (" << average_duration <<  " v.s. " << new_length << ")";
-		
-		const int chn_flow_single = flow_is_color ? 3 : 1;
 		for (int i = 0; i < num_segments; ++i){
 			if (this->phase_==TRAIN){
 				caffe::rng_t* frame_rng = static_cast<caffe::rng_t*>(frame_prefetch_rng_->generator());				
-				int offset = (*frame_rng)() % (average_duration - new_length + 1);
-				offsets.push_back(offset+i*average_duration);
+				int offset = (*frame_rng)() % (len_vid - new_length + 1);
+				offsets.push_back(offset);
 			} else{
-				offsets.push_back(int((average_duration-new_length+1)/2 + i*average_duration));
+				Linspace(0, len_vid-new_length, num_segments, offsets);
 			}
 		}
+		
 		if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW){
 			if(!ReadSegmentFlowToDatum(root_folder + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets, new_height, new_width, new_length, &datum, flow_is_color))				
 				continue;
@@ -153,8 +163,8 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		vector<int> top_shape = this->data_transformer_->InferBlobShape(datum);
 		transformed_data_loc.Reshape(top_shape);
 		transformed_data_loc.set_cpu_data(top_data + offset1);
+		const int chn_flow_single = flow_is_color ? 3 : 1;
 		this->data_transformer_->Transform(datum, &(transformed_data_loc), chn_flow_single);
-
 
 		top_label[item_id] = lines_[lines_id_loc].second;
 	}
