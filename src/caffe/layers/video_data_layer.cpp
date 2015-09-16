@@ -176,14 +176,6 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
                    top_label[kk] = lines_[lines_id_loc].second;
 	}
 
-<<<<<<< HEAD
-=======
-	if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW)
-			printf("\nread %d flow images cost %.f ms\n\n", batch_size, timer.MicroSeconds());
-	else
-			printf("\nread %d rgb images cost %.f ms\n\n", batch_size, timer.MicroSeconds());
-
->>>>>>> parent of cfb3346... remove \n\n in video_data_layer.cpp
 	//next iteration
 	lines_id_ += batch_video;
 	if (lines_id_ >= lines_size) {
