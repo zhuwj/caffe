@@ -35,8 +35,7 @@ void Video2DataLayer<Dtype>:: DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 	const int new_length_max = std::max(new_length_rgb, new_length_flow);
 	const int num_segments = this->layer_param_.video2_data_param().num_segments();
 	const string& source = this->layer_param_.video2_data_param().source();
-	string root_folder_rgb = this->layer_param_.video2_data_param().root_folder_rgb();        
-	string root_folder_flow = this->layer_param_.video2_data_param().root_folder_flow();
+	string root_folder = this->layer_param_.video2_data_param().root_folder();
 	const bool flow_is_color = this->layer_param_.video2_data_param().flow_is_color();
 
 	LOG(INFO) << "Opening file: " << source;
@@ -71,8 +70,8 @@ void Video2DataLayer<Dtype>:: DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 	}
 
 	Datum datum_flow, datum_rgb;
-	CHECK(ReadSegmentRGBToDatum(root_folder_rgb + lines_[lines_id_].first, lines_[lines_id_].second, offsets_rgb, new_height, new_width, new_length_rgb, &datum_rgb, true));
-	CHECK(ReadSegmentFlowToDatum(root_folder_flow + lines_[lines_id_].first, lines_[lines_id_].second, offsets_flow, new_height, new_width, new_length_flow, &datum_flow, flow_is_color));
+	CHECK(ReadSegmentRGBToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets_rgb, new_height, new_width, new_length_rgb, &datum_rgb, true));
+	CHECK(ReadSegmentFlowToDatum(root_folder + lines_[lines_id_].first, lines_[lines_id_].second, offsets_flow, new_height, new_width, new_length_flow, &datum_flow, flow_is_color));
 
 	const int crop_size = this->layer_param_.transform_param().crop_size();
 	const int batch_size = this->layer_param_.video2_data_param().batch_size();
@@ -90,15 +89,11 @@ void Video2DataLayer<Dtype>:: DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 	LOG(INFO) << "rgb output data size: " << top[0]->num() << "," << top[0]->channels() << "," << top[0]->height() << "," << top[0]->width();
 	LOG(INFO) << "flow output data size: " << top[1]->num() << "," << top[1]->channels() << "," << top[1]->height() << "," << top[1]->width();
 
-	LOG(INFO) << "begin to get prefetch label";
 	top[2]->Reshape(batch_size, 1, 1, 1);
 	this->prefetch_label_.Reshape(batch_size, 1, 1, 1);
-        LOG(INFO) << "finished getting prefetch label";
 
 	this->transformed_data_rgb_.Reshape(this->data_transformer_->InferBlobShape(datum_rgb));
 	this->transformed_data_flow_.Reshape(this->data_transformer_->InferBlobShape(datum_flow));
-
-	LOG(INFO) << "finish video2datalayer setup";
 }
 
 template <typename Dtype>
@@ -111,7 +106,7 @@ void Video2DataLayer<Dtype>::ShuffleVideos(){
 
 template <typename Dtype>
 void Video2DataLayer<Dtype>::InternalThreadEntry(){
-	LOG(INFO) << "entering InternalThreadEntry for Video2DataLayer";
+
 	CHECK(this->prefetch_data_.count());
 	Dtype* top_data_rgb = this->prefetch_data_rgb_.mutable_cpu_data();
 	Dtype* top_data_flow = this->prefetch_data_flow_.mutable_cpu_data();
@@ -125,8 +120,7 @@ void Video2DataLayer<Dtype>::InternalThreadEntry(){
 	const int new_length_flow = video2_data_param.new_length_flow();
 	const int new_length_max = std::max(new_length_rgb, new_length_flow);
 	const int num_segments = video2_data_param.num_segments();
-	string root_folder_rgb = video2_data_param.root_folder_rgb();
-	string root_folder_flow = video2_data_param.root_folder_flow();
+	string root_folder = video2_data_param.root_folder();
 	const bool flow_is_color = this->layer_param_.video2_data_param().flow_is_color();
 	const int lines_size = lines_.size();
 
@@ -155,11 +149,10 @@ void Video2DataLayer<Dtype>::InternalThreadEntry(){
 			offsets_rgb.push_back(offset + i*average_duration + new_length_max / 2 - new_length_rgb / 2);
 			offsets_flow.push_back(offset + i*average_duration + new_length_max / 2 - new_length_flow / 2);
 		}
-		LOG(INFO) << "begin to read data";
+
 		Datum datum_flow, datum_rgb;
-		CHECK(ReadSegmentRGBToDatum(root_folder_rgb + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets_rgb, new_height, new_width, new_length_rgb, &datum_rgb, true));
-		CHECK(ReadSegmentFlowToDatum(root_folder_flow + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets_flow, new_height, new_width, new_length_flow, &datum_flow, flow_is_color));
-		LOG(INFO) << "finished reading data";
+		CHECK(ReadSegmentRGBToDatum(root_folder + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets_rgb, new_height, new_width, new_length_rgb, &datum_rgb, true));
+		CHECK(ReadSegmentFlowToDatum(root_folder + lines_[lines_id_loc].first, lines_[lines_id_loc].second, offsets_flow, new_height, new_width, new_length_flow, &datum_flow, flow_is_color));
 
 		int offset1 = this->prefetch_data_rgb_.offset(item_id);
 		Blob<Dtype> transformed_data_rgb_loc;
@@ -174,9 +167,8 @@ void Video2DataLayer<Dtype>::InternalThreadEntry(){
 		transformed_data_flow_loc.Reshape(top_shape);
 		transformed_data_flow_loc.set_cpu_data(top_data_flow + offset1);
 		//this->data_transformer_->Transform(datum_flow, &(transformed_data_flow_loc), chn_flow_single);
-		LOG(INFO) << "begin to do transform";
+
 		this->data_transformer_->Transform(datum_rgb, datum_flow, &(transformed_data_rgb_loc), &(transformed_data_flow_loc), chn_flow_single);
-		LOG(INFO) << "finished doing transform";
 
 		top_label[item_id] = lines_[lines_id_loc].second;
 	}
@@ -194,5 +186,5 @@ void Video2DataLayer<Dtype>::InternalThreadEntry(){
 }
 
 INSTANTIATE_CLASS(Video2DataLayer);
-REGISTER_LAYER_CLASS(Video2Data);
+REGISTER_LAYER_CLASS(VideoData);
 }

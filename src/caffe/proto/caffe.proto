@@ -699,8 +699,7 @@ message Video2DataParameter{
   // DEPRECATED. See TransformationParameter. Specify if we want to randomly mirror
   // data.
   optional bool mirror = 6 [default = false];
-  optional string root_folder_rgb = 100 [default = ""];
-  optional string root_folder_flow = 110 [default = ""];
+  optional string root_folder = 100 [default = ""];
   optional bool flow_is_color = 101 [default = false];
 }
 

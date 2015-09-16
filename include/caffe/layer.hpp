@@ -62,13 +62,7 @@ class Layer {
       const vector<Blob<Dtype>*>& top) {
     CheckBlobCounts(bottom, top);
     LayerSetUp(bottom, top);
-
-    LOG(INFO) << "#bottom " << bottom.size();
-    LOG(INFO) << "#top " << top.size();
-
     Reshape(bottom, top);
-    LOG(INFO) << "finished reshape";
-   
     SetLossWeights(top);
   }
 
