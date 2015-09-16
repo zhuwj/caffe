@@ -316,21 +316,23 @@ void Transform_loc(const Datum& datum, const int chn_flow_single, Dtype* mean, v
   const int datum_width = datum.width();
   const string& data = datum.data();
   const bool has_uint8 = data.size() > 0;
+  cv::Mat multi_scale_bufferM;
 
   const bool has_mean_file = (mean != NULL);
   const bool has_mean_values = !mean_values.empty();
   CHECK(!(has_mean_file && has_mean_file));
 
-  const int height = crop_size ? crop_size : datum_height;
-  const int width = crop_size ? crop_size : datum_width;
+  int height = datum_height;
+  int width = datum_width;
+  if (crop_size) {
+    height = crop_size;
+    width = crop_size;
+  }
 
   //do transformation
-#pragma omp parallel num_threads(8) for
+  Dtype datum_element;
+  int top_index, data_index;
   for (int c = 0; c < datum_channels; ++c) {
-    Dtype datum_element;
-    cv::Mat multi_scale_bufferM;
-    int top_index, data_index;
-
     bool is_flow_x = false;
     if (isflow)
       is_flow_x = (c % (chn_flow_single * 2)) < chn_flow_single;
