@@ -115,6 +115,7 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 
 	CPUTimer timer;
 	timer.Start();
+	omp_set_num_threads(8);
 #pragma omp parallel for   
 	for (int item_id = 0; item_id < batch_size; ++item_id){		
 		Datum datum;
@@ -147,10 +148,6 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		}
 
 		int offset1 = this->prefetch_data_.offset(item_id);
-		
-		
-		// this->transformed_data_.set_cpu_data(top_data + offset1);    	
-		// this->data_transformer_->Transform(datum, &(this->transformed_data_), chn_flow_single);
 
 		Blob<Dtype> transformed_data_loc;
 		vector<int> top_shape = this->data_transformer_->InferBlobShape(datum);
@@ -159,18 +156,8 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 		this->data_transformer_->Transform(datum, &(transformed_data_loc), chn_flow_single);
 
 
-		int chn_loc = this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW ? (chn_flow_single * 2 * new_length * num_segments) : (3 * num_segments);
-		// vector<int> top_shape = this->data_transformer_->InferBlobShape(datum);
-		// this->data_transformer_->Transform(datum, top_data + offset1, 1, chn_loc, top_shape[2], top_shape[3], chn_flow_single);
-
-
 		top_label[item_id] = lines_[lines_id_loc].second;
 	}
-
-	if (this->layer_param_.video_data_param().modality() == VideoDataParameter_Modality_FLOW)
-			printf("\nread %d flow images cost %.f ms\n\n", batch_size, timer.MicroSeconds());
-	else
-			printf("\nread %d rgb images cost %.f ms\n\n", batch_size, timer.MicroSeconds());
 
 	//next iteration
 	lines_id_ += batch_size;
