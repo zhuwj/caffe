@@ -70,15 +70,10 @@ int main(int argc, char** argv) {
       }
       else //matched
       {
-        cout << "matched : "<< name_ori  << endl;
-        vector<shared_ptr<Blob<float> > >&blobs_src = layers_src[id_src].get()->blobs();
-        vector<shared_ptr<Blob<float> > >&blobs_dst = layers_dst[i].get()->blobs();
+        vector<shared_ptr<Blob<float> > >blobs_src = layers_src[id_src].get()->blobs();
+        vector<shared_ptr<Blob<float> > >blobs_dst = layers_src[i].get()->blobs();
         for (int id_blob = 0; id_blob < blobs_src.size(); ++id_blob){
-           LOG(INFO) << "begin to copy " << name_ori << ", memory: " << blobs_src[id_blob].get()->count();
-           LOG(INFO) << blobs_dst[id_blob].get()->cpu_data()[0];
-  //         caffe_copy(blobs_src[id_blob].get()->count(), blobs_src[id_blob].get()->cpu_data(), blobs_dst[id_blob].get()->mutable_cpu_data());
-           memcpy(blobs_dst[id_blob].get()->mutable_cpu_data(), blobs_src[id_blob].get()->cpu_data(), sizeof(float) * blobs_src[id_blob].get()->count());
-           LOG(INFO) << blobs_dst[id_blob].get()->cpu_data()[0];
+           caffe_copy(blobs_src[id_blob].get()->count(), blobs_src[id_blob].get()->cpu_data(), blobs_dst[id_blob].get()->mutable_cpu_data());
         } 
       }
     }

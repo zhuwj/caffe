@@ -115,11 +115,8 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 
 	CPUTimer timer;
 	timer.Start();
-
-	CHECK((batch_size % num_segments) == 0);
-        const int batch_video = batch_size / num_segments;
-#pragma omp parallel for
-	for (int item_id = 0; item_id < batch_video; ++item_id){		
+#pragma omp parallel for   
+	for (int item_id = 0; item_id < batch_size; ++item_id){		
 		Datum datum;
 		const int lines_id_loc = (lines_id_ + item_id) % lines_size;
 		CHECK_GT(lines_size, lines_id_loc);
@@ -149,7 +146,7 @@ void VideoDataLayer<Dtype>::InternalThreadEntry(){
 				continue;
 		}
 
-		int offset1 = this->prefetch_data_.offset(num_segments * item_id);
+		int offset1 = this->prefetch_data_.offset(item_id);
 		
 		
 		// this->transformed_data_.set_cpu_data(top_data + offset1);    	

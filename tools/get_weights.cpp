@@ -30,9 +30,9 @@ int main(int argc, char** argv){
   //ReadNetParamsFromBinaryFileOrDie(FLAGS_model, &net_param);
 
   caffe_net.CopyTrainedLayersFrom(model_file);
-  const vector<shared_ptr<Layer<float> > > &layers = caffe_net.layers();
+  const vector<shared_ptr<Layer<float> > > layers = caffe_net.layers();
   for (int i = 0; i < layers.size();++i){
-     vector<shared_ptr<Blob<float> > >&blobs = layers[i].get()->blobs();
+     vector<shared_ptr<Blob<float> > >blobs = layers[i].get()->blobs();
      for(int j = 0; j < blobs.size(); ++j){
           fout << layers[i].get()->layer_param().name() <<" ";
           fout << "blob " << j <<": ";
