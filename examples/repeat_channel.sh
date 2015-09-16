@@ -1,1 +1,1 @@
-../build/tools/repeat_channel /data1/deep_action/models/googlenet/train_val_videodata.prototxt /data1/deep_action/models/googlenet/bvlc_googlenet.caffemodel conv1/7x7_s2 6 /data1/deep_action/models/googlenet/bvlc_googlenet_fold_6.caffemodel
+../build/tools/repeat_channel ../../../deep_action/models/googlenet/train_val_videodata.prototxt ../../../deep_action/models/googlenet/bvlc_googlenet.caffemodel conv1/7x7_s2 20 ../../../deep_action/models/googlenet/bvlc_googlenet_fold_20_mean.caffemodel
