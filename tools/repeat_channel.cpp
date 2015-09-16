@@ -34,7 +34,7 @@ void RepeatChannel(const boost::shared_ptr<caffe::Layer<float> > layer, const in
         for (int c = 0; c < chn_ori; c++)
         {
           for (int i = 0; i < hei * wid; i++)
-            pdata_mean[i] += pdata_src[i] / chn_ori;
+            pdata_mean[i] += pdata_src[i];
 
           pdata_src += hei * wid;
         }
@@ -50,7 +50,7 @@ void RepeatChannel(const boost::shared_ptr<caffe::Layer<float> > layer, const in
         for (int c = 0; c < fold; c++)
         {
           for (int i = 0; i < hei * wid; i++)
-            pdata_rep[i] = pdata_mean[i];
+            pdata_rep[i] = pdata_mean[i] / fold;
 
           pdata_rep += hei * wid;
         }
