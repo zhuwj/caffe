@@ -61,10 +61,9 @@ int main(int argc ,char **argv) {
   // Read test_list
    vector<string> video_names;
   std::ifstream infile(test_list.c_str());
-  char str[100];
+  string line;
   LOG(INFO) << "Begin to read list";
-  while(infile.getline(str,sizeof(str))){
-    string line(str);
+  while(infile >> line){
     size_t index = line.find_first_of(" ");
     string video_name =  line.substr(0,index);
     LOG(INFO) << trim(video_name);
@@ -74,9 +73,9 @@ int main(int argc ,char **argv) {
   // Instantiate the caffe net.
   Net<float> caffe_net(deploy, caffe::TEST);
   caffe_net.CopyTrainedLayersFrom(model);
-
-  LOG(INFO) << "Finished instanitiate net!";
+  
   const vector<shared_ptr<Layer<float> > > &layers = caffe_net.layers();
+  const vector<string> &layer_names = caffe_net.layer_names();
 
   int num_seg;
   int batch_size;
@@ -91,13 +90,15 @@ int main(int argc ,char **argv) {
     LOG(INFO) << "First layer does not data layer ! ";
     return -1;
   }
+  int id_softmax = id_by_name(softmax_name, layer_names);
   CHECK((batch_size % num_seg) == 0);
   int batch_video = batch_size / num_seg;
   LOG(INFO) << "batch_size = " << batch_size << " num_segments = " << num_seg << " #video in batch = " << batch_video;
 
-  int num_class =  caffe_net.blob_by_name(softmax_name).get()->count() / batch_size;
-  int num_each_video = num_class * num_seg;
-  LOG(INFO) << "num_class :" << num_class <<" num_each_video: " << num_each_video;
+  if (id_softmax == -1) {
+    LOG(INFO) << "softmax layer name does not exist! ";
+    return -1;
+  }
   LOG(INFO) << "Running for " << iterations << " iterations."; 
   vector<Blob<float>* > bottom_vec;
   vector<int> test_score_output_id;
@@ -107,14 +108,13 @@ int main(int argc ,char **argv) {
     float iter_loss;
     const vector<Blob<float>*>& result = caffe_net.Forward(bottom_vec, &iter_loss);
     //save softmax output
-    const float* softmax_cpu_data = caffe_net.blob_by_name(softmax_name).get()->cpu_data();
-    LOG(INFO) << "Get softmax output";
+    const float* softmax_cpu_data = layers[id_softmax].get()->blobs()[0].get()->cpu_data();
+    int num_class = layers[id_softmax].get()->blobs()[0].get()->count() / batch_size;
+    int num_each_video = num_class * num_seg;
     for ( int j = 0; j < batch_video; ++j){
       std::ofstream outfile((saved_folder + "/" + video_names[i * (batch_video) + j] + ".txt").c_str());
-      LOG(INFO) << "Begin to write "<< video_names[i * (batch_video) + j] <<".txt";
       for (int id_seg = 0; id_seg < num_seg; ++id_seg){
         for(int id_class = 0; id_class < num_class; ++id_class){
-          LOG(INFO) << j * num_each_video + id_seg * num_class + id_class << " ";
           outfile << softmax_cpu_data[j * num_each_video + id_seg * num_class + id_class] << " ";
         }
         outfile << "\n";
