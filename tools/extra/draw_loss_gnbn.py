@@ -27,15 +27,23 @@ def parse_log(infile):
             split_line = line.strip().split()
             test_iteration.append(int(split_line[split_line.index('Iteration') + 1][:-1]))
             continue
-        if 'Test net output' in line and 'loss3/loss3' in line:
+        if 'Test net output' in line and 'loss3/loss' in line:
             split_line = line.strip().split()
-            test_loss.append(float(split_line[split_line.index('loss3/loss3') + 2]))
+            test_loss.append(float(split_line[split_line.index('loss3/loss') + 2]))
             continue
     if len(test_iteration)!=len(test_accuracy):
         test_iteration.pop()
     if len(test_loss)!=len(test_accuracy):
         test_iteration.pop()
         test_accuracy.pop()
+
+    print len(train_iteration), " ", len(train_loss), " ", len(test_iteration), " ", len(test_loss), " ", len(test_accuracy)
+    if len(test_iteration) != len(test_loss):
+      gap = int(round(len(test_iteration) / float(len(test_loss))));
+      print gap
+      test_iteration = test_iteration[0:-1:gap]
+
+
     return [train_iteration, train_loss, test_iteration, test_loss, test_accuracy]
 
 
@@ -44,6 +52,7 @@ def draw_loss(arg):
   fig = plt.figure(figsize=[25, 10])
   fig1 = fig.add_subplot(121)
   plt.plot(train_iteration,train_loss,'b',label = 'train')
+  print len(test_iteration), " ", len(test_loss)
   plt.plot(test_iteration,test_loss,'r',label = 'test')
   plt.title('Train and Test loss')
   plt.xlabel('Iteration')
