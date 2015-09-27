@@ -57,6 +57,14 @@ def draw_loss(arg):
   plt.title('Test accuracy')
   plt.xlabel('Iteration')
   plt.ylabel('Accuracy')
+
+  accu_max = max(test_accuracy)
+  id_max = test_accuracy.index(accu_max)
+  iter_max = test_iteration[id_max];
+  print iter_max, " ", accu_max
+  plt.plot(iter_max, accu_max, "o")
+  plt.text(iter_max, accu_max, str(iter_max))
+
   timestr = time.strftime("%d_%m_%y_%H:%M")
   plt.savefig('losss_accu_' + timestr + '.png')
   plt.show()

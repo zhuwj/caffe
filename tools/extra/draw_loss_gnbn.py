@@ -31,17 +31,21 @@ def parse_log(infile):
             split_line = line.strip().split()
             test_loss.append(float(split_line[split_line.index('loss3/loss') + 2]))
             continue
-    if len(test_iteration)!=len(test_accuracy):
-        test_iteration.pop()
-    if len(test_loss)!=len(test_accuracy):
-        test_iteration.pop()
-        test_accuracy.pop()
+#    if len(test_iteration)!=len(test_accuracy):
+#        test_iteration.pop()
+#    if len(test_loss)!=len(test_accuracy):
+#        test_iteration.pop()
+#        test_accuracy.pop()
 
     print len(train_iteration), " ", len(train_loss), " ", len(test_iteration), " ", len(test_loss), " ", len(test_accuracy)
     if len(test_iteration) != len(test_loss):
       gap = int(round(len(test_iteration) / float(len(test_loss))));
       print gap
       test_iteration = test_iteration[0:-1:gap]
+
+ #   len_min = min(len(test_iteration), len(test_accuracy))
+ #   test_iteration = test_iteration(0:len_min)
+ #   test_accuracy = test_accuracy(0:len_min)
 
 
     return [train_iteration, train_loss, test_iteration, test_loss, test_accuracy]
@@ -58,12 +62,21 @@ def draw_loss(arg):
   plt.xlabel('Iteration')
   plt.ylabel('Loss')
   plt.legend()
+  plt.gca().set_ylim([0, max(max(test_loss),min(5, max(train_loss)))])
 
   fig2 = fig.add_subplot(122)
   plt.plot(test_iteration,test_accuracy,'r')
   plt.title('Test accuracy')
   plt.xlabel('Iteration')
   plt.ylabel('Accuracy')
+
+  accu_max = max(test_accuracy)
+  id_max = test_accuracy.index(accu_max)
+  iter_max = test_iteration[id_max];
+  print iter_max, " ", accu_max
+  plt.plot(iter_max, accu_max, "o")
+  plt.text(iter_max, accu_max, str(iter_max))
+
   timestr = time.strftime("%d_%m_%y_%H:%M")
   plt.savefig('losss_accu_' + timestr + '.png')
   plt.show()
